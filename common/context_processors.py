@@ -84,4 +84,5 @@ def panel_preferences(request):
         "panel_currency_unit": result["currency_unit"],
         "panel_currency_label": currency_label(result["currency_unit"]),
         "panel_theme": result["theme"],
+        "panel_calendar_display": result["calendar_display"],
     }

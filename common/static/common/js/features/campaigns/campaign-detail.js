@@ -201,8 +201,8 @@ export function setupCampaignDetail() {
             if (!campaign) return;
             clearMessages(editForm);
             editForm.elements.name.value = campaign.name;
-            editForm.elements.starts_on.value = campaign.starts_on ? displayDay(campaign.starts_on) : "";
-            editForm.elements.ends_on.value = campaign.ends_on ? displayDay(campaign.ends_on) : "";
+            editForm.elements.starts_on.value = campaign.starts_on ? displayDay(campaign.starts_on, {gregorian: false}) : "";
+            editForm.elements.ends_on.value = campaign.ends_on ? displayDay(campaign.ends_on, {gregorian: false}) : "";
             editForm.elements.target_count.value = campaign.target_count ?? "";
             // In the reader's unit, unrounded, so saving does not move the amount.
             editForm.elements.budget.value = campaign.budget ? money(campaign.budget, {withCurrency: false, exact: true}) : "";

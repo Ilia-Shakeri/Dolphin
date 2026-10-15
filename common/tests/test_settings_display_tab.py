@@ -40,8 +40,11 @@ class CurrencyToggleTests(TestCase):
         page = self.client.get("/settings/").content.decode("utf-8")
         self.assertRegex(page, r'<input type="hidden" id="preference-currency-unit" name="currency_unit" value="(rial|toman)">')
         self.assertIn('class="dolphin-segmented dolphin-segmented-lg" role="radiogroup" aria-labelledby="preference-currency-label" data-segmented-for="preference-currency-unit"', page)
-        self.assertEqual(len(re.findall(r'role="radio" class="dolphin-segmented-option[^"]*"', page)), 2)
-        self.assertEqual(page.count('aria-checked="true" data-value="'), 1)
+        # Scoped to the currency toggle: since 2.40.49 the calendar choice is a
+        # second toggle of the same kind on the page.
+        currency = page.split('data-segmented-for="preference-currency-unit">', 1)[1].split("</div>", 1)[0]
+        self.assertEqual(len(re.findall(r'role="radio" class="dolphin-segmented-option[^"]*"', currency)), 2)
+        self.assertEqual(currency.count('aria-checked="true" data-value="'), 1)
 
     def test_the_save_still_sends_currency_unit(self):
         self.assertIn('currency_unit: data.get("currency_unit"),', SCRIPT)

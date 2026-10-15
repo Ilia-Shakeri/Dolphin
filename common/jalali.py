@@ -155,6 +155,25 @@ def _as_local_date(value):
     return value, None
 
 
+#: The Gregorian months as Persian readers write them (2.40.49); the same
+#: list as `GREGORIAN_MONTH_NAMES` in `core/jalali.js`.
+GREGORIAN_MONTHS = (
+    "ژانویه", "فوریه", "مارس", "آوریل", "مه", "ژوئن",
+    "ژوئیه", "اوت", "سپتامبر", "اکتبر", "نوامبر", "دسامبر",
+)
+
+
+def format_gregorian(value):
+    """`۱۵ اکتبر ۲۰۲۶` — the Tehran calendar day as Gregorian, with its month's
+    name so it can never be read as a Jalali date."""
+    if value in (None, ""):
+        return ""
+    local, _ = _as_local_date(value)
+    if local is None:
+        return ""
+    return to_persian_digits(f"{local.day} {GREGORIAN_MONTHS[local.month - 1]} {local.year}")
+
+
 def format_date(value, *, persian_digits=True):
     """A Gregorian date or datetime as `۱۴۰۵/۰۵/۲۵`."""
     if value in (None, ""):

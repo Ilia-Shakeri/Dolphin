@@ -133,7 +133,7 @@ class UserDashboardLayoutUpdateSerializer(RejectServerFieldsMixin, serializers.S
 class UserPreferenceSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserPreference
-        fields = ("font_family", "font_scale", "currency_unit", "theme", "updated_at")
+        fields = ("font_family", "font_scale", "currency_unit", "theme", "calendar_display", "updated_at")
         read_only_fields = fields
 
 
@@ -159,3 +159,4 @@ class UserPreferenceUpdateSerializer(RejectServerFieldsMixin, serializers.Serial
     )
     currency_unit = serializers.ChoiceField(choices=UserPreference.CurrencyUnit.values, required=False)
     theme = serializers.ChoiceField(choices=UserPreference.Theme.values, required=False)
+    calendar_display = serializers.ChoiceField(choices=UserPreference.CalendarDisplay.values, required=False)

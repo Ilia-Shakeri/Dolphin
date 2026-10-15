@@ -14,8 +14,8 @@ function fillAfterSales(item) {
     document.getElementById("after-sales-status-detail").value = item.status;
     document.getElementById("after-sales-assigned-detail").value = item.assigned_to_display || "تخصیص‌نیافته";
     document.getElementById("after-sales-created-by-detail").value = item.created_by_display || item.created_by;
-    document.getElementById("after-sales-closed-detail").value = displayDate(item.closed_at);
-    document.getElementById("after-sales-appointment-detail").value = item.next_appointment_at ? displayDate(item.next_appointment_at) : "زمان‌بندی‌نشده";
+    document.getElementById("after-sales-closed-detail").value = displayDate(item.closed_at, {gregorian: false});
+    document.getElementById("after-sales-appointment-detail").value = item.next_appointment_at ? displayDate(item.next_appointment_at, {gregorian: false}) : "زمان‌بندی‌نشده";
     document.getElementById("after-sales-description-detail").value = item.description;
     document.getElementById("after-sales-actions").hidden = Boolean(item.closed_at);
 }

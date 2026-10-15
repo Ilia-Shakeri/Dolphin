@@ -17,7 +17,7 @@ export async function setupActivityLogDetail() {
         document.getElementById("activity-object-role").value = ROLE_LABELS[item.object_role_snapshot] || item.object_role_snapshot;
         document.getElementById("activity-request-id").value = item.request_id || "";
         document.getElementById("activity-ip").value = item.ip_address || "";
-        document.getElementById("activity-created-at").value = displayDate(item.created_at);
+        document.getElementById("activity-created-at").value = displayDate(item.created_at, {gregorian: false});
         document.getElementById("activity-changes").textContent = JSON.stringify(item.safe_changes, null, 2);
         loading.hidden = true;
         content.hidden = false;

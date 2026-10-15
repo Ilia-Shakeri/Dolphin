@@ -44,7 +44,8 @@ class UserPreferenceView(APIView):
     @extend_schema(
         responses={200: {"type": "object"}, 403: ACCESS_DENIED_RESPONSE, 429: THROTTLED_RESPONSE},
         description=(
-            "The signed-in user's panel preferences — typeface, scale, currency unit and colour theme — "
+            "The signed-in user's panel preferences — typeface, scale, currency unit, colour theme and "
+            "whether dates also show their Gregorian equivalent — "
             "plus the catalog of choices each one accepts."
         ),
     )
@@ -71,5 +72,6 @@ class UserPreferenceView(APIView):
             font_scale=data.get("font_scale"),
             currency_unit=data.get("currency_unit"),
             theme=data.get("theme"),
+            calendar_display=data.get("calendar_display"),
         )
         return self._respond(request)

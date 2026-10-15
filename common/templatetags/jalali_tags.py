@@ -50,6 +50,21 @@ def jalali_datetime(value):
         return ""
 
 
+@register.simple_tag(takes_context=True)
+def panel_date(context, value, kind="date"):
+    """A date as this reader's panel shows it (2.40.49): Jalali, with the
+    Gregorian day beside it for someone who chose «شمسی و میلادی». Printed
+    documents do not use this; they stay Jalali."""
+    text = jalali_datetime(value) if kind == "datetime" else jalali_date(value)
+    if not text or context.get("panel_calendar_display") != "jalali_gregorian":
+        return text
+    try:
+        gregorian = jalali.format_gregorian(value)
+    except (ValueError, TypeError, AttributeError):
+        return text
+    return f"{text} ({gregorian})" if gregorian else text
+
+
 @register.filter(name="jalali_long")
 def jalali_long(value):
     """`۲۵ مرداد ۱۴۰۵`, for a document heading."""

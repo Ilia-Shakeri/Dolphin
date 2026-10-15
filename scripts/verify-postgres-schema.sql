@@ -91,7 +91,7 @@ SELECT (
     AND to_regclass('public.telephony_originaterequest') IS NOT NULL
     AND to_regclass('public.timeline_personnote') IS NOT NULL
     AND to_regclass('public.timeline_timelineentry') IS NOT NULL
-    -- Every migration this release ships (118), recorded.
+    -- Every migration this release ships (119), recorded.
     AND NOT EXISTS (
         SELECT 1
         FROM (
@@ -164,6 +164,7 @@ SELECT (
                 ('common', '0011_user_dashboard_shown_widgets'),
                 ('common', '0012_vazirmatn_default_font'),
                 ('common', '0013_print_settings'),
+                ('common', '0014_user_calendar_display'),
                 ('communications', '0001_initial'),
                 ('communications', '0002_outboundsms'),
                 ('communications', '0003_smsprovidersettings'),

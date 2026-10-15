@@ -356,6 +356,10 @@ class UserPreference(TimeStampedModel):
         LIGHT = "light", "روشن"
         DARK = "dark", "تیره"
 
+    class CalendarDisplay(models.TextChoices):
+        JALALI = "jalali", "فقط شمسی"
+        JALALI_GREGORIAN = "jalali_gregorian", "شمسی و میلادی"
+
     user = models.OneToOneField(
         "accounts.User", on_delete=models.CASCADE, related_name="panel_preference", primary_key=True,
     )
@@ -381,6 +385,12 @@ class UserPreference(TimeStampedModel):
     #: the person to another browser, and so the first painted frame is
     #: already right — `base.html` stamps it before any stylesheet loads.
     theme = models.CharField(max_length=8, choices=Theme.choices, default=Theme.SYSTEM)
+    #: Display only (2.40.49, owner decision 2026-10-14): every date in the
+    #: panel is Jalali; a reader may also see its Gregorian equivalent beside
+    #: it. Entry, storage, exports and printed documents stay Jalali.
+    calendar_display = models.CharField(
+        max_length=20, choices=CalendarDisplay.choices, default=CalendarDisplay.JALALI,
+    )
 
     def __str__(self):
         return f"تنظیمات نمایش {self.user_id}"

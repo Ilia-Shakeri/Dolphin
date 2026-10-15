@@ -173,6 +173,7 @@ export function setupSettingsPage() {
                     font_scale: data.get("font_scale"),
                     currency_unit: data.get("currency_unit"),
                     theme: data.get("theme"),
+                    calendar_display: data.get("calendar_display"),
                 },
             });
         } catch (error) {

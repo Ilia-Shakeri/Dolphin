@@ -53,6 +53,7 @@ DEFAULTS = {
     "font_scale": DEFAULT_PANEL_FONT_SCALE,
     "currency_unit": UserPreference.CurrencyUnit.RIAL,
     "theme": UserPreference.Theme.SYSTEM,
+    "calendar_display": UserPreference.CalendarDisplay.JALALI,
 }
 
 
@@ -73,6 +74,9 @@ def catalog():
             {"value": value, "label": label} for value, label in UserPreference.CurrencyUnit.choices
         ],
         "themes": [{"value": value, "label": label} for value, label in UserPreference.Theme.choices],
+        "calendar_displays": [
+            {"value": value, "label": label} for value, label in UserPreference.CalendarDisplay.choices
+        ],
     }
 
 
@@ -98,11 +102,12 @@ def effective_preferences(user):
         "font_scale": row.font_scale,
         "currency_unit": row.currency_unit,
         "theme": row.theme,
+        "calendar_display": row.calendar_display,
     }
 
 
 @transaction.atomic
-def update_preferences(*, actor, font_family=None, font_scale=None, currency_unit=None, theme=None):
+def update_preferences(*, actor, font_family=None, font_scale=None, currency_unit=None, theme=None, calendar_display=None):
     """Save this actor's own preferences. Every argument is independent and
     optional, the same shape `common.branding.update_brand_settings` uses.
 
@@ -122,6 +127,7 @@ def update_preferences(*, actor, font_family=None, font_scale=None, currency_uni
         ("font_scale", font_scale),
         ("currency_unit", currency_unit),
         ("theme", theme),
+        ("calendar_display", calendar_display),
     ):
         if value is None:
             continue

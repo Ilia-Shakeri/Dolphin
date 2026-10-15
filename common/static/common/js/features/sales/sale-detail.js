@@ -21,7 +21,7 @@ function fillSale(sale) {
     document.getElementById("sale-unit-price").value = money(sale.unit_price_snapshot);
     document.getElementById("sale-total").value = money(sale.total_amount);
     document.getElementById("sale-detail-status").value = saleStatusText(sale.status);
-    document.getElementById("sale-time").value = displayDate(sale.sold_at);
+    document.getElementById("sale-time").value = displayDate(sale.sold_at, {gregorian: false});
     document.getElementById("sale-notes").value = sale.notes || "";
     const cancelSection = document.getElementById("sale-cancel-section");
     if (cancelSection) cancelSection.hidden = sale.status !== "confirmed";

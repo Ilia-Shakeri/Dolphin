@@ -16,8 +16,8 @@ export async function setupInteractionDetail() {
         document.getElementById("interaction-phone").value = interaction.phone;
         document.getElementById("interaction-direction").value = directionText(interaction.direction);
         document.getElementById("interaction-outcome").value = interaction.outcome;
-        document.getElementById("interaction-occurred").value = displayDate(interaction.occurred_at);
-        document.getElementById("interaction-follow-up").value = displayDate(interaction.next_follow_up_at);
+        document.getElementById("interaction-occurred").value = displayDate(interaction.occurred_at, {gregorian: false});
+        document.getElementById("interaction-follow-up").value = displayDate(interaction.next_follow_up_at, {gregorian: false});
         document.getElementById("interaction-notes").value = interaction.notes || "";
     };
     // Live (2.40.41): the record redraws in place when it changes elsewhere.

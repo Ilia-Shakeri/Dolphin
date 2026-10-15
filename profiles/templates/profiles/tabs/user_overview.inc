@@ -14,9 +14,9 @@
                 <div class="row mb-5"><dt class="col-5 fw-semibold text-muted">استان</dt><dd class="col-7 fw-bold fs-6 text-gray-800 mb-0 text-break" data-overview-field="province">{{ account.province|default:"—" }}</dd></div>
                 <div class="row mb-5"><dt class="col-5 fw-semibold text-muted">ایمیل</dt><dd class="col-7 fw-bold fs-6 text-gray-800 mb-0 text-break"><span data-overview-field="email" dir="ltr">{{ account.email|default:"—" }}</span></dd></div>
                 <div class="row mb-5"><dt class="col-5 fw-semibold text-muted">وضعیت</dt><dd class="col-7 fw-bold fs-6 text-gray-800 mb-0 text-break">{% if account.is_active %}فعال{% else %}غیرفعال{% endif %}</dd></div>
-                <div class="row mb-5"><dt class="col-5 fw-semibold text-muted">آخرین ورود</dt><dd class="col-7 fw-bold fs-6 text-gray-800 mb-0 text-break">{% if account.last_login %}{{ account.last_login|jalali_datetime }}{% else %}<span title="این حساب هنوز وارد نشده است.">—</span>{% endif %}</dd></div>
-                <div class="row mb-5"><dt class="col-5 fw-semibold text-muted">آخرین بازدید</dt><dd class="col-7 fw-bold fs-6 text-gray-800 mb-0 text-break">{% if account.last_seen_at %}{{ account.last_seen_at|jalali_datetime }}{% else %}<span title="از نسخهٔ ۲.۱۹.۰ به بعد ثبت می‌شود و هنوز بازدیدی ثبت نشده است.">—</span>{% endif %}</dd></div>
-                <div class="row mb-5"><dt class="col-5 fw-semibold text-muted">تاریخ ایجاد حساب</dt><dd class="col-7 fw-bold fs-6 text-gray-800 mb-0 text-break">{{ account.created_at|jalali_datetime }}</dd></div>
+                <div class="row mb-5"><dt class="col-5 fw-semibold text-muted">آخرین ورود</dt><dd class="col-7 fw-bold fs-6 text-gray-800 mb-0 text-break">{% if account.last_login %}{% panel_date account.last_login "datetime" %}{% else %}<span title="این حساب هنوز وارد نشده است.">—</span>{% endif %}</dd></div>
+                <div class="row mb-5"><dt class="col-5 fw-semibold text-muted">آخرین بازدید</dt><dd class="col-7 fw-bold fs-6 text-gray-800 mb-0 text-break">{% if account.last_seen_at %}{% panel_date account.last_seen_at "datetime" %}{% else %}<span title="از نسخهٔ ۲.۱۹.۰ به بعد ثبت می‌شود و هنوز بازدیدی ثبت نشده است.">—</span>{% endif %}</dd></div>
+                <div class="row mb-5"><dt class="col-5 fw-semibold text-muted">تاریخ ایجاد حساب</dt><dd class="col-7 fw-bold fs-6 text-gray-800 mb-0 text-break">{% panel_date account.created_at "datetime" %}</dd></div>
             </dl>
             {% endwith %}
         </div></section>

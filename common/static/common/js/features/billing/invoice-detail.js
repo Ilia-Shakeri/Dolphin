@@ -21,7 +21,7 @@ import {appendCell, appendMoneyCell, labelled} from "dolphin/ui/table.js";
  * the day before.
  */
 function localDayValue(value) {
-    const shown = displayDay(value);
+    const shown = displayDay(value, {gregorian: false});
     return shown === "—" ? "" : shown;
 }
 
@@ -102,7 +102,7 @@ export async function setupInvoiceDetail() {
         syncOfficialInvoiceNotice(invoice);
         document.getElementById("edit-invoice-document-date").value =
             localDayValue(invoice.document_date);
-        document.getElementById("invoice-issued-at").value = displayDay(invoice.issued_at);
+        document.getElementById("invoice-issued-at").value = displayDay(invoice.issued_at, {gregorian: false});
         // Derived, and shown as such. It is the sum of the allocations made
         // against this invoice from the receipts desk; «مانده» follows it.
         if (paidInput) paidInput.value = money(invoice.paid_amount);

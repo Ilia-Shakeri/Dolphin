@@ -85,7 +85,7 @@
                         <span class="d-block text-gray-700 fs-8 mt-1">{{ row.summary }}</span>
                         {% if row.last_error %}<span class="d-block text-danger fs-8 mt-1 text-break" dir="auto">{{ row.last_error }}</span>{% endif %}
                     </td>
-                    <td>{% if row.last_error_at %}{{ row.last_error_at|jalali_datetime }}{% else %}<span title="وضعیت را «آزمایش اتصال» می‌سنجد.">—</span>{% endif %}</td>
+                    <td>{% if row.last_error_at %}{% panel_date row.last_error_at "datetime" %}{% else %}<span title="وضعیت را «آزمایش اتصال» می‌سنجد.">—</span>{% endif %}</td>
                     <td><span class="text-muted fs-8 text-nowrap">در تنظیمات خودش</span></td>
                     <td class="row-actions">
                         {% if row.settings_url_name %}<a class="btn btn-sm btn-light" href="{% url row.settings_url_name %}">تنظیمات و کلید</a>{% endif %}

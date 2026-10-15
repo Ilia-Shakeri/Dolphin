@@ -1,3 +1,4 @@
+import {SHOWS_GREGORIAN} from "dolphin/core/config.js";
 import {toLatinDigits, toPersianDigits} from "dolphin/core/digits.js";
 
 // --- Jalali dates (BIZ-007) ----------------------------------------------
@@ -26,6 +27,23 @@ export const JALALI_MONTH_NAMES = [
 //: (ی/د/س/چ/پ/ج/ش) the lead-follow-up calendar used before: several of
 //: those letters are one or two dots apart in the Persian script (چ/ج/ح,
 //: پ/ب/ت) and read as near-identical at a calendar header's font size.
+//: The Gregorian months as Persian readers write them (2.40.49). A Gregorian
+//: date is always shown with its month's name, never as `YYYY/MM/DD`, so it
+//: can never be read as a Jalali one.
+export const GREGORIAN_MONTH_NAMES = [
+    "ژانویه", "فوریه", "مارس", "آوریل", "مه", "ژوئن",
+    "ژوئیه", "اوت", "سپتامبر", "اکتبر", "نوامبر", "دسامبر",
+];
+
+/** `۱۵ اکتبر ۲۰۲۶`. */
+export function gregorianLabel(year, month, day) {
+    return toPersianDigits(`${day} ${GREGORIAN_MONTH_NAMES[month - 1]} ${year}`);
+}
+
+function withGregorian(text, gregorian, parts) {
+    return gregorian ? `${text} (${gregorianLabel(parts[0], parts[1], parts[2])})` : text;
+}
+
 export const PERSIAN_WEEKDAY_NAMES = [
     "یکشنبه", "دوشنبه", "سه‌شنبه", "چهارشنبه", "پنجشنبه", "جمعه", "شنبه",
 ];
@@ -107,31 +125,35 @@ export function tehranToInstant(year, month, day, hour, minute) {
     return new Date(guess);
 }
 
-/** A stored value as `۱۴۰۵/۰۵/۲۵` (date only). */
-export function displayDay(value) {
+/**
+ * A stored value as `۱۴۰۵/۰۵/۲۵` (date only) — with `(۱۶ اوت ۲۰۲۶)` after it
+ * for a reader who asked to see Gregorian too. `{gregorian: false}` where the
+ * text fills a field someone may edit and save: that must stay plain Jalali.
+ */
+export function displayDay(value, {gregorian = SHOWS_GREGORIAN} = {}) {
     if (!value) return "—";
     // A bare `YYYY-MM-DD` is a calendar day, not an instant: read it as
     // written rather than shifting it through a time zone.
     const plain = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(value));
     if (plain) {
         const [year, month, day] = gregorianToJalali(+plain[1], +plain[2], +plain[3]);
-        return toPersianDigits(`${pad4(year)}/${pad2(month)}/${pad2(day)}`);
+        return withGregorian(toPersianDigits(`${pad4(year)}/${pad2(month)}/${pad2(day)}`), gregorian, [+plain[1], +plain[2], +plain[3]]);
     }
     const parts = tehranParts(value);
     if (!parts) return value;
     const [year, month, day] = gregorianToJalali(parts.year, parts.month, parts.day);
-    return toPersianDigits(`${pad4(year)}/${pad2(month)}/${pad2(day)}`);
+    return withGregorian(toPersianDigits(`${pad4(year)}/${pad2(month)}/${pad2(day)}`), gregorian, [parts.year, parts.month, parts.day]);
 }
 
-/** A stored instant as `۱۴۰۵/۰۵/۲۵ ۱۴:۳۰` in Tehran local time. */
-export function displayDate(value) {
+/** A stored instant as `۱۴۰۵/۰۵/۲۵ ۱۴:۳۰` in Tehran local time; see `displayDay`. */
+export function displayDate(value, {gregorian = SHOWS_GREGORIAN} = {}) {
     if (!value) return "—";
     const parts = tehranParts(value);
     if (!parts) return value;
     const [year, month, day] = gregorianToJalali(parts.year, parts.month, parts.day);
-    return toPersianDigits(
+    return withGregorian(toPersianDigits(
         `${pad4(year)}/${pad2(month)}/${pad2(day)} ${pad2(parts.hour)}:${pad2(parts.minute)}`
-    );
+    ), gregorian, [parts.year, parts.month, parts.day]);
 }
 
 export function pad2(value) { return String(value).padStart(2, "0"); }

@@ -70,7 +70,7 @@ export async function setupPaymentDetail() {
         }
 
         document.getElementById("payment-amount").value = money(payment.amount);
-        document.getElementById("payment-received-at").value = displayDate(payment.received_at);
+        document.getElementById("payment-received-at").value = displayDate(payment.received_at, {gregorian: false});
         document.getElementById("payment-reference").value = payment.reference || "";
         const bankName = document.getElementById("payment-bank-name");
         if (bankName) bankName.value = payment.bank_name || "";
@@ -89,7 +89,7 @@ export async function setupPaymentDetail() {
             if (cheque) {
                 document.getElementById("payment-cheque-bank").value = cheque.bank_name;
                 document.getElementById("payment-cheque-serial").value = cheque.serial_number;
-                document.getElementById("payment-cheque-due").value = displayDay(cheque.due_date);
+                document.getElementById("payment-cheque-due").value = displayDay(cheque.due_date, {gregorian: false});
                 document.getElementById("payment-cheque-status").value = labelled(CHEQUE_STATUS_TEXT, cheque.status);
                 // Both axes are shown, and neither is editable from here.
                 const registration = document.getElementById("payment-cheque-registration");

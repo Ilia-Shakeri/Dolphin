@@ -18,7 +18,7 @@
                 <div class="row mb-5"><dt class="col-5 fw-semibold text-muted">دسته‌بندی</dt><dd class="col-7 fw-bold fs-6 text-gray-800 mb-0 text-break" data-overview-field="category">{{ customer.category|default:"—" }}</dd></div>
                 <div class="row mb-5"><dt class="col-5 fw-semibold text-muted">نشانی</dt><dd class="col-7 fw-bold fs-6 text-gray-800 mb-0 text-break" data-overview-field="address">{{ customer.address|default:"—" }}</dd></div>
                 <div class="row mb-5"><dt class="col-5 fw-semibold text-muted">ثبت‌کننده</dt><dd class="col-7 fw-bold fs-6 text-gray-800 mb-0 text-break">{{ customer.created_by.get_full_name|default:customer.created_by.username }}</dd></div>
-                <div class="row mb-5"><dt class="col-5 fw-semibold text-muted">تاریخ ثبت</dt><dd class="col-7 fw-bold fs-6 text-gray-800 mb-0 text-break">{{ customer.created_at|jalali_datetime }}</dd></div>
+                <div class="row mb-5"><dt class="col-5 fw-semibold text-muted">تاریخ ثبت</dt><dd class="col-7 fw-bold fs-6 text-gray-800 mb-0 text-break">{% panel_date customer.created_at "datetime" %}</dd></div>
             </dl>
             {% if customer.notes %}<div class="mt-5 pt-4 border-top border-gray-200"><h3 class="fs-6 fw-bold text-gray-800 mb-2">یادداشت</h3><p class="text-gray-700 mb-0 text-break" data-overview-field="notes">{{ customer.notes|linebreaksbr }}</p></div>{% endif %}
             {% endwith %}

@@ -164,6 +164,14 @@
     background: transparent;
 }
 
+/* The Gregorian months a Jalali month spans (2.40.49), under its title. */
+.jalali-picker-gregorian {
+    margin: -0.25rem 0 0.4rem;
+    text-align: center;
+    font-size: 0.8rem;
+    color: var(--dolphin-text-secondary);
+}
+
 .jalali-picker .jalali-picker-scope:hover,
 .jalali-picker .jalali-picker-scope[aria-expanded="true"] {
     background: var(--bs-primary-light);

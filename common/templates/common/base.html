@@ -176,6 +176,7 @@
          money cell in every table needs it and it cannot change without a
          page load. {% endcomment %}
       data-currency-unit="{{ panel_currency_unit|default:'rial' }}"
+      data-calendar="{{ panel_calendar_display|default:'jalali' }}"
       {% comment %} Set only for someone whose calls ring an extension mapped to them
          (telephony, 2.23.0): their pages poll for the incoming-call popup. {% endcomment %}
       {% if call_popup %}data-call-popup="1"{% endif %}

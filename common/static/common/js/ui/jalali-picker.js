@@ -1,5 +1,6 @@
+import {SHOWS_GREGORIAN} from "dolphin/core/config.js";
 import {toLatinDigits, toPersianDigits} from "dolphin/core/digits.js";
-import {JALALI_MONTH_NAMES, JALALI_WEEKDAY_LETTERS, gregorianToJalali, jalaliMonthLength, jalaliWeekday, pad2, pad4, parseJalaliInput, tehranParts} from "dolphin/core/jalali.js";
+import {GREGORIAN_MONTH_NAMES, JALALI_MONTH_NAMES, JALALI_WEEKDAY_LETTERS, gregorianLabel, gregorianToJalali, jalaliMonthLength, jalaliToGregorian, jalaliWeekday, pad2, pad4, parseJalaliInput, tehranParts} from "dolphin/core/jalali.js";
 
 let closeOpenJalaliPicker = null; // the open picker's own teardown, or null
 import {dispatchUserEvent} from "dolphin/core/events.js";
@@ -249,7 +250,13 @@ function openJalaliPicker(field) {
         footer.append(confirmBtn);
     }
 
-    panel.append(header, weekdays, days, months, years, ...(timeRow ? [timeRow] : []), footer);
+    // The Gregorian months this Jalali month spans, for a reader who asked
+    // to see Gregorian too (2.40.49); each day names its own in its tooltip.
+    const gregorianLine = document.createElement("div");
+    gregorianLine.className = "jalali-picker-gregorian";
+    gregorianLine.hidden = !SHOWS_GREGORIAN;
+
+    panel.append(header, gregorianLine, weekdays, days, months, years, ...(timeRow ? [timeRow] : []), footer);
 
     //: The decade the year grid is showing, as its first year.
     let decadeStart = Math.floor(viewYear / 10) * 10;
@@ -257,6 +264,16 @@ function openJalaliPicker(field) {
     function updateTitle() {
         monthBtn.textContent = JALALI_MONTH_NAMES[viewMonth - 1];
         yearBtn.textContent = toPersianDigits(String(viewYear));
+        if (SHOWS_GREGORIAN) {
+            const [firstYear, firstMonth] = jalaliToGregorian(viewYear, viewMonth, 1);
+            const [lastYear, lastMonth] = jalaliToGregorian(viewYear, viewMonth, jalaliMonthLength(viewYear, viewMonth));
+            const first = GREGORIAN_MONTH_NAMES[firstMonth - 1];
+            const last = GREGORIAN_MONTH_NAMES[lastMonth - 1];
+            gregorianLine.textContent = toPersianDigits(firstYear === lastYear
+                ? `${first}–${last} ${firstYear}`
+                : `${first} ${firstYear} – ${last} ${lastYear}`);
+            gregorianLine.hidden = view !== "days";
+        }
         monthBtn.setAttribute("aria-expanded", String(view === "months"));
         yearBtn.setAttribute("aria-expanded", String(view === "years"));
     }
@@ -299,6 +316,7 @@ function openJalaliPicker(field) {
             const cell = document.createElement("button");
             cell.type = "button";
             cell.textContent = toPersianDigits(String(day));
+            if (SHOWS_GREGORIAN) cell.title = gregorianLabel(...jalaliToGregorian(viewYear, viewMonth, day));
             cell.className = "btn btn-icon jalali-picker-day " + (
                 isSelected ? "btn-primary"
                 : isToday ? "btn-active-light-primary border border-primary text-primary"

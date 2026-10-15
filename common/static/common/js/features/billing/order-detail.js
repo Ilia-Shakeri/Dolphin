@@ -39,7 +39,7 @@ export async function setupOrderDetail() {
             }
         }
         // Registration is server-generated and immutable, shown as a day.
-        document.getElementById("order-registered-at").value = displayDay(order.created_at);
+        document.getElementById("order-registered-at").value = displayDay(order.created_at, {gregorian: false});
         document.getElementById("order-created-by").value = order.created_by_display || order.created_by;
         if (statusSelect) {
             statusSelect.value = order.status;
