@@ -50,7 +50,7 @@ class Fixtures(TestCase):
         lead = create_lead(actor=self.manager, customer=self.customer, source="کمپین امتیاز")
         record_interaction(
             actor=self.manager, lead=lead, phone="09150003333", direction="outbound",
-            outcome="پاسخ داد", occurred_at=timezone.now() - timedelta(days=days_ago),
+            result="connected", outcome="پاسخ داد", occurred_at=timezone.now() - timedelta(days=days_ago),
         )
         return lead
 

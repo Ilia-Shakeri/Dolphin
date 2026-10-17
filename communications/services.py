@@ -483,6 +483,15 @@ def _collect_campaign_recipients(*, customer_ids, lead_ids, phones):
             raise BusinessRuleError({"phones": "؛ ".join(error.messages)}) from error
         collected.setdefault(normalized, {"customer": None, "lead": None})
 
+    # «عدم تماس مجدد» (2.40.58, BIZ-003): a group send is marketing, so a
+    # number on that list is left out.
+    from sales.call_outcomes import blocked_numbers
+
+    blocked = blocked_numbers(list(collected))
+    if blocked and len(blocked) == len(collected):
+        raise BusinessRuleError({"recipients": "همهٔ گیرنده‌ها در فهرست «عدم تماس مجدد» هستند."})
+    for number in blocked:
+        collected.pop(number)
     if not collected:
         raise BusinessRuleError({"recipients": "دست‌کم یک گیرندهٔ معتبر لازم است."})
     if len(collected) > SMS_CAMPAIGN_MAX_RECIPIENTS:

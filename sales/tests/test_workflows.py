@@ -105,7 +105,7 @@ class CoreWorkflowTests(TestCase):
                 lead=self.lead,
                 phone="09121234567",
                 direction=Interaction.Direction.OUTBOUND,
-                outcome="answered",
+                result="connected", outcome="answered",
                 occurred_at=timezone.now(),
                 notes="x" * (FREE_TEXT_MAX_LENGTH + 1),
             )
@@ -287,7 +287,7 @@ class CoreWorkflowTests(TestCase):
             lead=self.lead,
             phone="09121234567",
             direction=Interaction.Direction.OUTBOUND,
-            outcome="answered",
+            result="connected", outcome="answered",
             occurred_at=timezone.now(),
         )
         own_sale = mark_sale(
@@ -779,7 +779,7 @@ class CoreWorkflowTests(TestCase):
                             "lead": lead_id,
                             "phone": f"0912300000{index}",
                             "direction": Interaction.Direction.OUTBOUND,
-                            "outcome": "answered",
+                            "result": "connected", "outcome": "answered",
                             "occurred_at": timezone.now().isoformat(),
                         },
                         format="json",
@@ -929,7 +929,7 @@ class CoreWorkflowTests(TestCase):
         payload = {
             "phone": "09121234567",
             "direction": Interaction.Direction.OUTBOUND,
-            "outcome": "answered",
+            "result": "connected", "outcome": "answered",
             "occurred_at": timezone.now().isoformat(),
         }
         hidden = client.post("/api/v1/interactions/", {**payload, "lead": other_lead.pk}, format="json")
@@ -973,7 +973,7 @@ class CoreWorkflowTests(TestCase):
             "lead": self.lead.pk,
             "phone": "09121234567",
             "direction": Interaction.Direction.OUTBOUND,
-            "outcome": "answered",
+            "result": "connected", "outcome": "answered",
             "occurred_at": timezone.now().isoformat(),
         }, format="json")
         self.assertEqual(created.status_code, 201)
@@ -1084,7 +1084,7 @@ class CoreWorkflowTests(TestCase):
             "lead": self.lead.pk,
             "phone": "09121234567",
             "direction": Interaction.Direction.OUTBOUND,
-            "outcome": "answered",
+            "result": "connected", "outcome": "answered",
             "occurred_at": timezone.now().isoformat(),
             "agent": self.other.pk,
         }, format="json")
@@ -1155,7 +1155,7 @@ class CoreWorkflowTests(TestCase):
                 "lead": self.lead.pk,
                 "phone": "09121234567",
                 "direction": Interaction.Direction.INBOUND,
-                "outcome": "follow up",
+                "result": "connected", "outcome": "follow up",
                 "occurred_at": timezone.now().isoformat(),
                 "next_follow_up_at": next_follow_up.isoformat(),
             },
@@ -1194,7 +1194,7 @@ class CoreWorkflowTests(TestCase):
             "lead": self.lead.pk,
             "phone": "09121234567",
             "direction": Interaction.Direction.OUTBOUND,
-            "outcome": "answered",
+            "result": "connected", "outcome": "answered",
             "occurred_at": timezone.now().isoformat(),
         }, format="json")
         self.assertEqual(created.status_code, 201)

@@ -485,6 +485,75 @@
 </dialog>
 {% endif %}
 {% if can_configure_installments %}
+{% if can_manage_call_outcomes %}
+{% comment %} Call outcomes (2.40.58, BIZ-003; `sales.call_outcomes`). The standard
+   twelve are what reports count by; a company outcome is counted as the standard
+   one it names. Older calls keep their words and are matched here by hand. A number
+   on the do-not-contact list leaves marketing calls and new campaigns; taking it
+   off needs a reason and keeps the row. {% endcomment %}
+<div id="settings-pane-calls" role="tabpanel" aria-labelledby="settings-tab-calls" data-settings-pane="calls"{% if active_tab != "calls" %} hidden{% endif %}>
+<section class="card mb-5 mb-xl-8">
+    <div class="card-header border-0 pt-6 flex-wrap gap-3">
+        <div class="card-title flex-column">
+            <h2>نتیجه‌های تماس</h2>
+            <span class="text-muted fs-7 mt-1">فهرستی که هر تماس از آن انتخاب می‌شود. «موفق» یعنی کسی واقعاً پاسخ داد؛ «واجد شرایط» گزینه‌ای جداست که فقط کنار سه نتیجه می‌آید.</span>
+        </div>
+        <div class="card-toolbar"><button class="btn btn-primary" type="button" id="call-outcome-add" hidden>نتیجهٔ تازه</button></div>
+    </div>
+    <div class="card-body pt-2">
+        <div id="call-outcomes-loading" class="text-center text-gray-700 py-6">در حال دریافت نتیجه‌ها…</div>
+        <div class="table-responsive" id="call-outcomes-table-wrap" hidden><table class="table align-middle table-row-dashed fs-6 gy-3 mb-0"><thead><tr class="text-start text-gray-700 fw-bold fs-7 gs-0"><th>نتیجه</th><th>در گزارش‌ها</th><th>تماس موفق</th><th>واجد شرایط</th><th>وضعیت</th><th><span class="visually-hidden">عملیات</span></th></tr></thead><tbody id="call-outcomes-body"></tbody></table></div>
+        <p class="text-muted fs-8 mt-4 mb-0" id="call-outcomes-feature-note" hidden>افزودن نتیجهٔ اختصاصی شرکت با فیچر «شخصی‌سازی» ممکن است.</p>
+    </div>
+</section>
+<section class="card mb-5 mb-xl-8">
+    <div class="card-header border-0 pt-6">
+        <div class="card-title flex-column">
+            <h2>نگاشت تماس‌های قدیمی</h2>
+            <span class="text-muted fs-7 mt-1">تماس‌هایی که پیش از فهرست با متن آزاد ثبت شده‌اند. متنشان همان می‌ماند؛ فقط نتیجهٔ فهرست کنارشان ثبت می‌شود.</span>
+        </div>
+    </div>
+    <div class="card-body pt-2">
+        <div id="legacy-outcomes-loading" class="text-center text-gray-700 py-6">در حال دریافت…</div>
+        <div id="legacy-outcomes-empty" class="text-center text-gray-700 py-6" hidden>همهٔ تماس‌ها نتیجهٔ فهرست دارند.</div>
+        <div class="table-responsive" id="legacy-outcomes-table-wrap" hidden><table class="table align-middle table-row-dashed fs-6 gy-3 mb-0"><thead><tr class="text-start text-gray-700 fw-bold fs-7 gs-0"><th>متن ثبت‌شده</th><th>تعداد تماس</th><th>نتیجهٔ فهرست</th><th><span class="visually-hidden">عملیات</span></th></tr></thead><tbody id="legacy-outcomes-body"></tbody></table></div>
+    </div>
+</section>
+<section class="card mb-5 mb-xl-8">
+    <div class="card-header border-0 pt-6">
+        <div class="card-title flex-column">
+            <h2>فهرست عدم تماس مجدد</h2>
+            <span class="text-muted fs-7 mt-1">شماره‌هایی که با نتیجهٔ «عدم تماس مجدد» از تماس بازاریابی، پیامک گروهی و کمپین‌های تازه بیرون رفته‌اند. سوابقشان می‌ماند.</span>
+        </div>
+    </div>
+    <div class="card-body pt-2">
+        <div id="do-not-contact-loading" class="text-center text-gray-700 py-6">در حال دریافت…</div>
+        <div id="do-not-contact-empty" class="text-center text-gray-700 py-6" hidden>شماره‌ای در فهرست نیست.</div>
+        <div class="table-responsive" id="do-not-contact-table-wrap" hidden><table class="table align-middle table-row-dashed fs-6 gy-3 mb-0"><thead><tr class="text-start text-gray-700 fw-bold fs-7 gs-0"><th>شماره</th><th>توضیح</th><th>ثبت‌کننده</th><th>زمان</th><th><span class="visually-hidden">عملیات</span></th></tr></thead><tbody id="do-not-contact-body"></tbody></table></div>
+    </div>
+</section>
+</div>
+<dialog id="call-outcome-dialog" aria-labelledby="call-outcome-dialog-title">
+    <div class="d-flex flex-stack align-items-center mb-5"><h2 id="call-outcome-dialog-title" class="mb-0">نتیجهٔ تماس</h2><button class="btn btn-icon btn-light" type="button" data-close-dialog aria-label="بستن">×</button></div>
+    <form id="call-outcome-form" novalidate>
+        <div class="d-grid gap-5">
+            <div><label class="form-label fw-semibold required" for="call-outcome-label">نام نتیجه</label><input class="form-control form-control-solid" id="call-outcome-label" name="label" maxlength="60" required><p class="text-danger fs-8 mt-1 mb-0" data-error-for="label"></p></div>
+            <div id="call-outcome-standard-field"><label class="form-label fw-semibold required" for="call-outcome-standard">در گزارش‌ها شمرده شود به‌عنوان</label><select class="form-select form-select-solid" id="call-outcome-standard" name="standard_key"></select><p class="text-muted fs-8 mt-1 mb-0">پس از ساخت عوض نمی‌شود، تا معنای تماس‌های ثبت‌شده تغییر نکند.</p><p class="text-danger fs-8 mt-1 mb-0" data-error-for="standard_key"></p></div>
+            <div class="form-check form-check-custom form-check-solid form-switch" id="call-outcome-active-wrap" hidden><input class="form-check-input" type="checkbox" id="call-outcome-active" name="is_active"><label class="form-check-label" for="call-outcome-active">روشن</label></div>
+            <p class="text-danger fs-8 mb-0" data-error-for="is_active"></p>
+        </div>
+        <div class="d-flex justify-content-end gap-3 mt-6"><button class="btn btn-primary" type="submit">ذخیره</button></div>
+    </form>
+</dialog>
+<dialog id="do-not-contact-dialog" aria-labelledby="do-not-contact-dialog-title">
+    <div class="d-flex flex-stack align-items-center mb-2"><h2 id="do-not-contact-dialog-title" class="mb-0">برداشتن از فهرست</h2><button class="btn btn-icon btn-light" type="button" data-close-dialog aria-label="بستن">×</button></div>
+    <p class="text-gray-700 fs-7 mb-5" id="do-not-contact-subject"></p>
+    <form id="do-not-contact-form" novalidate>
+        <label class="form-label fw-semibold required" for="do-not-contact-reason">دلیل</label><textarea class="form-control form-control-solid" id="do-not-contact-reason" name="reason" rows="2" maxlength="500" required></textarea><p class="text-danger fs-8 mt-1 mb-0" data-error-for="reason"></p>
+        <div class="d-flex justify-content-end gap-3 mt-6"><button class="btn btn-primary" type="submit">برداشتن از فهرست</button></div>
+    </form>
+</dialog>
+{% endif %}
 {% comment %} This company's instalment rules (2.40.51; `billing.installment_settings`).
    Each advanced instalment capability is its own manifest feature; a card shows only
    for one this deployment runs, and the API checks the feature and the

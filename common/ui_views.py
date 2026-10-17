@@ -715,6 +715,14 @@ class DolphinInteractionListView(ActiveCrmView):
     required_feature = "leads"
     template_name = "common/interactions/list.html"
 
+    def get_context_data(self, **kwargs):
+        from sales.call_outcomes import outcomes_payload
+
+        context = super().get_context_data(**kwargs)
+        # The outcome list the form chooses from and the filter offers (2.40.58).
+        context["call_outcomes"] = outcomes_payload()
+        return context
+
 
 class DolphinInteractionDetailView(ScopedDetailView):
     required_feature = "leads"
@@ -1708,6 +1716,14 @@ class DolphinSettingsView(ActiveCrmView):
         context["can_manage_customization"] = can_manage_customization(self.request.user)
         if context["can_manage_customization"]:
             tabs.append(("customization", "شخصی‌سازی"))
+        # Call outcomes, older calls and the do-not-contact list (2.40.58):
+        # `customization.manage` with `leads`; a company's own outcome also
+        # needs `customization`, checked by `/api/v1/call-outcomes/`.
+        context["can_manage_call_outcomes"] = (
+            feature_enabled("leads") and "customization.manage" in context["capabilities"]
+        )
+        if context["can_manage_call_outcomes"]:
+            tabs.append(("calls", "نتیجهٔ تماس"))
         if context["can_manage_branding"] or context["can_manage_integrations"]:
             tabs.append(("deployment", "استقرار"))
         requested = self.request.GET.get("tab", "")

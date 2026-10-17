@@ -707,6 +707,81 @@ class StageChange(models.Model):
         ]
 
 
+class CallOutcome(TimeStampedModel):
+    """One outcome a call can be recorded with (2.40.58, BIZ-003).
+
+    The twelve standard outcomes are seeded and are what reports count by; a
+    company adds its own, each mapped to a standard one (`standard_key`) so the
+    reports stay comparable (owner: «نتایج استاندارد سیستم برای گزارش‌گیری حفظ
+    شوند»). What a standard outcome means — a real contact, may be qualified,
+    needs a follow-up date, stops further marketing calls — is
+    `sales.call_outcomes.STANDARD`, not a setting.
+    """
+
+    key = models.CharField(max_length=PIPELINE_KEY_MAX_LENGTH, unique=True)
+    label = models.CharField(max_length=PIPELINE_LABEL_MAX_LENGTH)
+    standard_key = models.CharField(max_length=PIPELINE_KEY_MAX_LENGTH)
+    position = models.PositiveSmallIntegerField(default=0)
+    is_system = models.BooleanField(default=False)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ["position", "id"]
+        constraints = [
+            models.CheckConstraint(condition=Q(key__regex=r"\A[a-z][a-z0-9_]{0,39}\Z"), name="call_outcome_key_shape"),
+            models.CheckConstraint(condition=Q(label__regex=r"\S"), name="call_outcome_label_nonblank"),
+            models.CheckConstraint(
+                condition=Q(standard_key__in=[
+                    "no_answer", "busy", "wrong_number", "connected", "interested", "needs_follow_up",
+                    "quote_requested", "purchased", "not_interested", "call_later", "do_not_call", "other",
+                ]),
+                name="call_outcome_standard_valid",
+            ),
+            # A standard outcome is its own standard, and stays on.
+            models.CheckConstraint(
+                condition=Q(is_system=False) | (Q(standard_key=models.F("key")) & Q(is_active=True)),
+                name="call_outcome_system_is_standard",
+            ),
+        ]
+
+
+class DoNotContact(models.Model):
+    """A number not to be called for marketing again (2.40.58, BIZ-003).
+
+    Owner: «در نتیجه عدم تماس مجدد، مخاطب از تماس‌های بازاریابی و
+    کمپین‌های جدید خارج شود؛ بااین‌حال سوابق قبلی او حذف نشود». Added by a
+    call recorded with «عدم تماس مجدد»; a manager may lift it with a reason,
+    which ends the row rather than deleting it.
+    """
+
+    normalized_phone = models.CharField(max_length=20, db_index=True)
+    interaction = models.ForeignKey(
+        "Interaction", null=True, blank=True, on_delete=models.PROTECT, related_name="do_not_contact"
+    )
+    note = models.CharField(max_length=LOST_NOTE_MAX_LENGTH, blank=True)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+")
+    created_at = models.DateTimeField(auto_now_add=True)
+    lifted_at = models.DateTimeField(null=True, blank=True)
+    lifted_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name="+")
+    lift_reason = models.CharField(max_length=STAGE_REASON_MAX_LENGTH, blank=True)
+
+    class Meta:
+        ordering = ["-created_at", "-id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["normalized_phone"], condition=Q(lifted_at__isnull=True), name="uniq_active_do_not_contact",
+            ),
+            models.CheckConstraint(
+                condition=Q(normalized_phone__regex=r"\A\+98[1-9][0-9]{9}\Z"), name="do_not_contact_phone_shape",
+            ),
+            models.CheckConstraint(
+                condition=(Q(lifted_at__isnull=True, lifted_by__isnull=True)
+                           | (Q(lifted_at__isnull=False, lifted_by__isnull=False) & Q(lift_reason__regex=r"\S"))),
+                name="do_not_contact_lift_complete",
+            ),
+        ]
+
+
 class LeadAssignmentHistory(models.Model):
     lead = models.ForeignKey(Lead, on_delete=models.PROTECT, related_name="assignment_history")
     from_user = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name="assignments_lost")
@@ -747,6 +822,18 @@ class Interaction(TimeStampedModel):
     normalized_phone = models.CharField(max_length=20, blank=True, default="", db_index=True, editable=False)
     direction = models.CharField(max_length=20, choices=Direction.choices)
     outcome = models.CharField(max_length=INTERACTION_OUTCOME_MAX_LENGTH, db_index=True)
+    #: The outcome chosen from the list (2.40.58, BIZ-003): a `CallOutcome`
+    #: key. Required for every call recorded from then on; blank only on an
+    #: older call not yet matched to the list, whose own words stay in
+    #: `outcome`. `result_standard` is the standard outcome it counts as in
+    #: the reports — the result itself for a standard one, the one a company
+    #: outcome is mapped to otherwise — copied when the call is recorded.
+    result = models.CharField(max_length=PIPELINE_KEY_MAX_LENGTH, blank=True, db_index=True)
+    result_standard = models.CharField(max_length=PIPELINE_KEY_MAX_LENGTH, blank=True, db_index=True)
+    #: A real need was confirmed on this call (owner: a separate option, kept
+    #: apart from the outcome so reports do not mistake one for the other).
+    #: Only on «علاقه‌مند», «نیازمند پیگیری» and «درخواست پیش‌فاکتور».
+    qualified = models.BooleanField(default=False)
     occurred_at = models.DateTimeField(db_index=True)
     next_follow_up_at = models.DateTimeField(null=True, blank=True)
     notes = models.CharField(max_length=FREE_TEXT_MAX_LENGTH, blank=True)
@@ -766,8 +853,16 @@ class Interaction(TimeStampedModel):
                 condition=Q(customer__isnull=False) | Q(target_member__isnull=False),
                 name="interaction_names_someone",
             ),
+            models.CheckConstraint(
+                condition=~Q(qualified=True) | Q(result_standard__in=["interested", "needs_follow_up", "quote_requested"]),
+                name="interaction_qualified_outcome",
+            ),
         ]
-        indexes = [models.Index(fields=["agent", "-occurred_at"]), models.Index(fields=["lead", "-occurred_at"])]
+        indexes = [
+            models.Index(fields=["agent", "-occurred_at"]),
+            models.Index(fields=["lead", "-occurred_at"]),
+            models.Index(fields=["agent", "result_standard", "occurred_at"], name="interaction_agent_result_idx"),
+        ]
 
     def save(self, *args, **kwargs):
         from common.phones import normalized_or_blank

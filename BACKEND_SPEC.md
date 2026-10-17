@@ -714,17 +714,25 @@ inbound
 outbound
 ```
 
-Provisional outcome candidates, not final contractual values:
+**Outcomes (2.40.58, product-owner decision BIZ-003, 2026-10-17).** The provisional list that stood here
+is superseded. Every call recorded from 2.40.58 on carries `result` (a `CallOutcome` key, required),
+`result_standard` (the standard outcome it counts as, copied at recording time) and `qualified`; the
+free text is `notes`, and `outcome` keeps the call's words (the outcome's name when left empty).
 
-```text
-answered
-no_answer
-busy
-invalid_number
-call_back
-not_interested
-sale
-```
+- Twelve standard outcomes (`sales.call_outcomes.STANDARD`): `no_answer, busy, wrong_number, connected,
+  interested, needs_follow_up, quote_requested, purchased, not_interested, call_later, do_not_call,
+  other`. *Successful* = every standard outcome but the first three. *Qualified* is allowed only on
+  `interested`, `needs_follow_up`, `quote_requested` (a database constraint). `needs_follow_up` requires
+  `next_follow_up_at`. `purchased` is not a sale — a sale is a valid invoice.
+- A company outcome (`c<n>`, feature `customization`, `customization.manage`) names the standard one it
+  counts as; that link never changes, and standard outcomes stay on.
+- `do_not_call` puts the number on `DoNotContact` (one active row per E.164 number; ended with a reason
+  by a manager, never deleted). A listed number is refused by campaign add/import and target-audience
+  add, left out of group SMS, and refused by click-to-call except for after-sales agents (a service call
+  is not marketing). Inbound calls and history are untouched.
+- Older calls keep their words; migration 0040 matched only exact outcome names or keys (letters and
+  spacing unified); the rest are matched by hand (`customization.manage`), and a match to `do_not_call`
+  lists the number as recording it would.
 
 Automatic duration, recording, telephony provider, start/end tracking, and call-center API are not confirmed.
 
@@ -1250,7 +1258,7 @@ Base path: `/api/v1/`. Authentication: Django session cookie plus CSRF. Unsafe r
 
 ### Interactions, products, sales
 
-- `interactions/`: scoped list/create/retrieve. Create requires exact `direction` (`inbound` or `outbound`) and a nonblank `outcome` of at most 80 characters. Notes permit at most 4,000 characters. A non-null `next_follow_up_at` updates the locked assigned Lead through the Interaction service in the same transaction. Interaction records are append-only through the API. No update or DELETE.
+- `interactions/`: scoped list/create/retrieve. Create requires exact `direction` (`inbound` or `outbound`) and `result` from the outcome list (2.40.58); `qualified` is optional; `outcome` (at most 80 characters) is optional and defaults to the outcome's name. Each call carries `result_label` and `successful`; the list filters by `result=<key>|legacy` and `qualified=true`. `call-outcomes/` (+ `{id}/`, `legacy/`) and `do-not-contact/` (+ `{id}/lift/`) are the settings side (`customization.manage`). Notes permit at most 4,000 characters. A non-null `next_follow_up_at` updates the locked assigned Lead through the Interaction service in the same transaction. Interaction records are append-only through the API. No update or DELETE.
 - `product-categories/`: authenticated scoped list/retrieve. Sales Agent sees active rows only; Sales Manager, Company IT, and Platform Admin see active/inactive rows and may create/PATCH. Category is flat with immutable canonical code, unique normalized display name, bounded description, and non-negative display order. List supports exact `is_active`, search, ordering, and pagination. No DELETE.
 - `POST product-categories/{id}/deactivate/` and `POST .../reactivate/`: elevated roles only. Deactivation returns conflict while any active Product references the Category. Both transitions lock, preserve history, and safely audit.
 - `products/`: authenticated scoped read. Sales Manager, Company IT, or Platform Admin create/update. Payload adds optional Category ID, plain brand up to 120, and optional uppercase canonical unique barcode up to 64. Description permits at most 4,000 characters. List supports exact positive `category` after Product scope; unknown IDs return an empty scoped collection. Inactive Category assignment is rejected. Existing payloads without the new optional fields remain valid.

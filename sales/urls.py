@@ -1,6 +1,13 @@
 from django.urls import path
 from rest_framework.routers import DefaultRouter
 
+from sales.call_outcome_views import (
+    CallOutcomeDetailView,
+    CallOutcomeListView,
+    DoNotContactLiftView,
+    DoNotContactListView,
+    LegacyOutcomeView,
+)
 from sales.campaign_views import CampaignMemberViewSet, CampaignViewSet
 from sales.pipeline_views import (
     LostReasonDetailView,
@@ -29,6 +36,11 @@ router.register("products", ProductViewSet, basename="product")
 router.register("sales", SaleViewSet, basename="sale")
 router.register("sales-documents", SalesDocumentViewSet, basename="sales-document")
 urlpatterns = [
+    path("call-outcomes/", CallOutcomeListView.as_view(), name="call-outcomes"),
+    path("call-outcomes/<int:pk>/", CallOutcomeDetailView.as_view(), name="call-outcome"),
+    path("call-outcomes/legacy/", LegacyOutcomeView.as_view(), name="call-outcomes-legacy"),
+    path("do-not-contact/", DoNotContactListView.as_view(), name="do-not-contact"),
+    path("do-not-contact/<int:pk>/lift/", DoNotContactLiftView.as_view(), name="do-not-contact-lift"),
     path("pipeline/", PipelineView.as_view(), name="pipeline"),
     path("pipeline/stages/", PipelineStageListView.as_view(), name="pipeline-stages"),
     path("pipeline/stages/<int:pk>/", PipelineStageDetailView.as_view(), name="pipeline-stage"),

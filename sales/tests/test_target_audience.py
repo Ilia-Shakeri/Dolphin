@@ -86,7 +86,7 @@ class TargetAudienceTests(TestCase):
             target_member=member,
             phone="09120004444",
             direction=Interaction.Direction.OUTBOUND,
-            outcome="پاسخ داد",
+            result="connected", outcome="پاسخ داد",
             occurred_at=timezone.now(),
         )
         member.refresh_from_db()
@@ -100,7 +100,7 @@ class TargetAudienceTests(TestCase):
             target_member=member,
             phone="09120005555",
             direction=Interaction.Direction.OUTBOUND,
-            outcome="پاسخ داد",
+            result="connected", outcome="پاسخ داد",
             occurred_at=timezone.now(),
         )
         member.refresh_from_db()

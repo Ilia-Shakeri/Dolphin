@@ -467,7 +467,8 @@ def build_inbound_sms_workbook(report):
 
 MARKETER_HEADERS = (
     "rank", "previous_rank", "user_id", "name", "sales_count", "sales_amount", "share_percent",
-    "collected_amount", "average_amount", "customers_count", "calls_count", "leads_assigned",
+    "collected_amount", "average_amount", "customers_count", "calls_count", "successful_calls",
+    "qualified_calls", "leads_assigned",
     "leads_completed", "conversion_rate",
 )
 
@@ -490,6 +491,8 @@ def build_marketer_ranking_workbook(report):
             format(row.average_amount, ".2f"),
             row.customers_count,
             row.calls_count,
+            row.successful_calls,
+            row.qualified_calls,
             row.leads_assigned,
             row.leads_completed,
             "" if row.conversion_rate is None else format(row.conversion_rate, ".1f"),
@@ -511,4 +514,6 @@ def build_marketer_ranking_workbook(report):
     summary.append(("collected_amount", format(totals["collected_amount"], ".2f")))
     summary.append(("customers_count", totals["customers_count"]))
     summary.append(("calls_count", totals["calls_count"]))
+    summary.append(("successful_calls", totals["successful_calls"]))
+    summary.append(("qualified_calls", totals["qualified_calls"]))
     return _finish(workbook, sheet)

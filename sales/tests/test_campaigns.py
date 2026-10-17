@@ -143,7 +143,7 @@ class CampaignServiceTests(Fixtures):
         lead = member.lead
         record_interaction(
             actor=self.manager, lead=lead, target_member=member, phone=member.raw_phone,
-            direction="outbound", outcome="پاسخ داد", occurred_at=timezone.now(),
+            direction="outbound", result="connected", outcome="پاسخ داد", occurred_at=timezone.now(),
         )
         member.refresh_from_db()
         self.assertEqual(member.stage, "contacted")
@@ -191,7 +191,7 @@ class AttributionTests(Fixtures):
     def called(self, person, days_ago=1):
         record_interaction(
             actor=self.manager, lead=person.lead, target_member=person, phone=person.raw_phone,
-            direction="outbound", outcome="پاسخ داد", occurred_at=timezone.now() - timedelta(days=days_ago),
+            direction="outbound", result="connected", outcome="پاسخ داد", occurred_at=timezone.now() - timedelta(days=days_ago),
         )
 
     def test_a_person_who_was_never_contacted_is_not_attributed(self):
@@ -242,11 +242,11 @@ class AttributionTests(Fixtures):
         second = self.member("09121110001", campaign=other)
         record_interaction(
             actor=self.manager, lead=first.lead, target_member=first, phone=first.raw_phone,
-            direction="outbound", outcome="الف", occurred_at=timezone.now() - timedelta(days=10),
+            direction="outbound", result="connected", outcome="الف", occurred_at=timezone.now() - timedelta(days=10),
         )
         record_interaction(
             actor=self.manager, lead=second.lead, target_member=second, phone=second.raw_phone,
-            direction="outbound", outcome="ب", occurred_at=timezone.now() - timedelta(days=2),
+            direction="outbound", result="connected", outcome="ب", occurred_at=timezone.now() - timedelta(days=2),
         )
         invoice = issue_invoice(actor=self.manager, invoice=self.invoice())
         self.assertEqual(CampaignAttribution.objects.get(invoice=invoice).campaign, other)
@@ -375,7 +375,7 @@ class AssignedMemberCallTests(Fixtures):
         when = timezone.now() + timedelta(days=2)
         record_interaction(
             actor=self.agent, lead=lead, target_member=mine, phone=mine.raw_phone, direction="outbound",
-            outcome="پاسخ داد", occurred_at=timezone.now(), next_follow_up_at=when,
+            result="connected", outcome="پاسخ داد", occurred_at=timezone.now(), next_follow_up_at=when,
         )
         mine.refresh_from_db()
         other.refresh_from_db()
@@ -384,7 +384,7 @@ class AssignedMemberCallTests(Fixtures):
         with self.assertRaises(BusinessPermissionDenied):
             record_interaction(
                 actor=self.agent, lead=lead, target_member=other, phone=other.raw_phone, direction="outbound",
-                outcome="x", occurred_at=timezone.now(),
+                result="connected", outcome="x", occurred_at=timezone.now(),
             )
 
 
@@ -481,7 +481,7 @@ class ChosenCampaignTests(Fixtures):
         person = self.member("09121110051", campaign=other)
         record_interaction(
             actor=self.manager, lead=person.lead, target_member=person, phone=person.raw_phone,
-            direction="outbound", outcome="الف", occurred_at=timezone.now() - timedelta(days=1),
+            direction="outbound", result="connected", outcome="الف", occurred_at=timezone.now() - timedelta(days=1),
         )
         draft = create_invoice(
             actor=self.manager, customer=self.customer, campaign=self.campaign,

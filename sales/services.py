@@ -64,7 +64,7 @@ PHONE_MUTABLE_FIELDS = {"raw_phone", "label", "is_primary", "is_active"}
 PRODUCT_MUTABLE_FIELDS = {"sku", "name", "category", "brand", "barcode", "unit", "current_price", "description"}
 PRODUCT_CATEGORY_CREATE_FIELDS = {"code", "name", "description", "display_order"}
 PRODUCT_CATEGORY_UPDATE_FIELDS = {"name", "description", "display_order"}
-INTERACTION_CREATE_FIELDS = {"phone", "direction", "outcome", "occurred_at", "next_follow_up_at", "notes"}
+INTERACTION_CREATE_FIELDS = {"phone", "direction", "outcome", "result", "qualified", "occurred_at", "next_follow_up_at", "notes"}
 SALE_CREATE_FIELDS = {"sold_at", "notes"}
 CUSTOMER_TEXT_LIMITS = {
     "postal_code": CUSTOMER_POSTAL_CODE_MAX_LENGTH,
@@ -101,19 +101,26 @@ def _validate_text_lengths(values, limits):
 
 
 def _validate_interaction_data(data):
+    """Direction, and the call's own words when given.
+
+    Since 2.40.58 the outcome is chosen from the list (`result`,
+    `sales.call_outcomes.clean_call`); `outcome` stays as the call's words and
+    takes the outcome's name when left empty.
+    """
     errors = {}
     if data.get("direction") not in Interaction.Direction.values:
         errors["direction"] = "جهت باید ورودی یا خروجی باشد."
     outcome = data.get("outcome")
-    if not isinstance(outcome, str) or not outcome.strip():
-        errors["outcome"] = "نتیجه تماس الزامی است."
-    elif len(outcome.strip()) > INTERACTION_OUTCOME_MAX_LENGTH:
+    if outcome is not None and not isinstance(outcome, str):
+        errors["outcome"] = "نتیجه باید متن باشد."
+    elif outcome is not None and len(outcome.strip()) > INTERACTION_OUTCOME_MAX_LENGTH:
         errors["outcome"] = (
             f"این فیلد نباید بیش از {INTERACTION_OUTCOME_MAX_LENGTH} نویسه داشته باشد."
         )
     if errors:
         raise BusinessRuleError(errors)
-    data["outcome"] = outcome.strip()
+    if outcome is not None:
+        data["outcome"] = outcome.strip()
 
 
 def _lock_active_actor(actor):
@@ -869,6 +876,9 @@ def record_interaction(*, actor, lead, target_member=None, **data):
         raise BusinessRuleError({field: "این فیلد قابل تنظیم نیست." for field in sorted(unknown)})
     _validate_text_lengths(data, INTERACTION_TEXT_LIMITS)
     _validate_interaction_data(data)
+    from sales.call_outcomes import after_call, clean_call
+
+    standard = clean_call(data)
     locked_lead = Lead.objects.select_for_update().get(pk=lead.pk)
     # A campaign's container has no assignee; the person worked is assigned.
     owns_member = target_member is not None and target_member.assigned_to_id == actor.pk
@@ -884,6 +894,7 @@ def record_interaction(*, actor, lead, target_member=None, **data):
     interaction = Interaction.objects.create(
         lead=locked_lead, customer=customer, target_member=target_member, agent=actor, **data
     )
+    after_call(interaction, standard, actor)
     if target_member is not None:
         refresh_target_member_status(member=target_member, actor=actor)
         from sales.campaigns import advance_stage_on_contact
@@ -1364,6 +1375,10 @@ def add_target_audience_member(*, actor, lead, full_name, raw_phone, status="", 
     # decided by what happens to it, not by what anyone types.
     status = TargetAudienceMember.Status.LEAD
     normalized = normalize_customer_phone(raw_phone)
+    # «عدم تماس مجدد» (2.40.58): never back into a campaign.
+    from sales.call_outcomes import refuse_if_blocked
+
+    refuse_if_blocked(normalized)
     # Before campaigns (2.36.0) a phone appeared once in the whole audience, and
     # that stays the rule for a container with no campaign. A container that
     # belongs to a campaign is unique per campaign (a database constraint).

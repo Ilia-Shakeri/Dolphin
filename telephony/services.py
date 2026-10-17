@@ -162,6 +162,12 @@ def request_originate(*, actor, number, person_type="", person_id=None):
     if integration.status != Integration.Status.OK:
         raise BusinessConflictError({"detail": "مرکز تلفن الان در دسترس نیست؛ کمی بعد دوباره امتحان کنید."})
     dial, e164 = dial_string(integration, number)
+    # «عدم تماس مجدد» (2.40.58, BIZ-003): no marketing call to that number. A
+    # service call from after-sales is not marketing and goes through.
+    from sales.call_outcomes import is_after_sales_agent, is_blocked
+
+    if e164 and is_blocked(e164) and not is_after_sales_agent(actor):
+        raise BusinessRuleError({"number": "این شماره در فهرست «عدم تماس مجدد» است؛ تماس بازاریابی با آن برقرار نمی‌شود."})
     if person_type or person_id:
         _adapter, person = resolve_person(actor, str(person_type or ""), person_id)
         if person is None:

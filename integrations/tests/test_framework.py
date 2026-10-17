@@ -368,7 +368,7 @@ class MatchingTests(Fixtures):
         lead = create_lead(actor=self.manager, customer=self.customer, source="کمپین")
         record_interaction(
             actor=self.manager, lead=lead, phone="09133330000", direction="outbound",
-            outcome="پاسخ داد", occurred_at=timezone.now(),
+            result="connected", outcome="پاسخ داد", occurred_at=timezone.now(),
         )
         self.assertEqual(Interaction.objects.get().normalized_phone, "+989133330000")
         match = best_match("09133330000")

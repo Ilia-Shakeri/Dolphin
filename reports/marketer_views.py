@@ -44,6 +44,8 @@ class MarketerRowSerializer(serializers.Serializer):
     average_amount = serializers.DecimalField(max_digits=20, decimal_places=2)
     customers_count = serializers.IntegerField()
     calls_count = serializers.IntegerField()
+    successful_calls = serializers.IntegerField()
+    qualified_calls = serializers.IntegerField()
     leads_assigned = serializers.IntegerField()
     leads_completed = serializers.IntegerField()
     conversion_rate = serializers.DecimalField(max_digits=6, decimal_places=1, allow_null=True)
@@ -57,6 +59,8 @@ class MarketerTotalsSerializer(serializers.Serializer):
     collected_amount = serializers.DecimalField(max_digits=20, decimal_places=2)
     customers_count = serializers.IntegerField()
     calls_count = serializers.IntegerField()
+    successful_calls = serializers.IntegerField()
+    qualified_calls = serializers.IntegerField()
 
 
 class OrderingSerializer(serializers.Serializer):

@@ -15,7 +15,11 @@ export async function setupInteractionDetail() {
         document.getElementById("interaction-agent").value = interaction.agent_display || interaction.agent;
         document.getElementById("interaction-phone").value = interaction.phone;
         document.getElementById("interaction-direction").value = directionText(interaction.direction);
-        document.getElementById("interaction-outcome").value = interaction.outcome;
+        const words = interaction.outcome && interaction.outcome !== interaction.result_label ? interaction.outcome : "";
+        document.getElementById("interaction-outcome").value = interaction.result_label
+            ? [interaction.result_label, words].filter(Boolean).join(" — ")
+            : `${interaction.outcome} (تماس قدیمی، هنوز با فهرست نگاشت نشده)`;
+        document.getElementById("interaction-qualified").value = interaction.qualified ? "بله" : "خیر";
         document.getElementById("interaction-occurred").value = displayDate(interaction.occurred_at, {gregorian: false});
         document.getElementById("interaction-follow-up").value = displayDate(interaction.next_follow_up_at, {gregorian: false});
         document.getElementById("interaction-notes").value = interaction.notes || "";

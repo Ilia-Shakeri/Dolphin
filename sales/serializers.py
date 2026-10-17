@@ -557,8 +557,25 @@ class LeadAssignmentHistorySerializer(serializers.ModelSerializer):
         return self._display(instance.changed_by)
 
 
+def _outcome_names(context):
+    """Outcome names, read once per response (2.40.58)."""
+    if "_outcome_names" not in context:
+        from sales.models import CallOutcome
+
+        context["_outcome_names"] = dict(CallOutcome.objects.values_list("key", "label"))
+    return context["_outcome_names"]
+
+
 class InteractionSerializer(RejectServerFieldsMixin, serializers.ModelSerializer):
-    server_fields = {"customer", "customer_name", "agent", "agent_display", "created_at", "updated_at"}
+    server_fields = {"customer", "customer_name", "agent", "agent_display", "created_at", "updated_at", "result_standard", "result_label", "successful"}
+    #: Chosen from the list (2.40.58, BIZ-003) — required for a new call. The
+    #: call's own words (`outcome`) are optional and default to its name.
+    result = serializers.CharField(max_length=40)
+    qualified = serializers.BooleanField(required=False, default=False)
+    result_label = serializers.SerializerMethodField()
+    #: Someone was really reached — any standard outcome but no answer, busy
+    #: and a wrong number. `None` for an older call not matched to the list.
+    successful = serializers.SerializerMethodField()
     customer = serializers.PrimaryKeyRelatedField(read_only=True)
     agent = serializers.PrimaryKeyRelatedField(read_only=True)
     # The call is logged against whoever was actually spoken to. Early in a
@@ -569,11 +586,21 @@ class InteractionSerializer(RejectServerFieldsMixin, serializers.ModelSerializer
 
     class Meta:
         model = Interaction
-        fields = ["id", "lead", "customer", "customer_name", "target_member", "agent", "agent_display", "phone", "direction", "outcome", "occurred_at", "next_follow_up_at", "notes", "created_at", "updated_at"]
-        read_only_fields = ["id", "customer", "customer_name", "agent", "agent_display", "created_at", "updated_at"]
+        fields = ["id", "lead", "customer", "customer_name", "target_member", "agent", "agent_display", "phone", "direction", "outcome", "result", "result_standard", "result_label", "qualified", "successful", "occurred_at", "next_follow_up_at", "notes", "created_at", "updated_at"]
+        read_only_fields = ["id", "customer", "customer_name", "agent", "agent_display", "result_standard", "result_label", "successful", "created_at", "updated_at"]
         # A call on a campaign person names the person; its lead is the
         # person's own campaign container and may be left out (2.40.0).
-        extra_kwargs = {"lead": {"required": False}}
+        extra_kwargs = {"lead": {"required": False}, "outcome": {"required": False, "allow_blank": True}}
+
+    def get_result_label(self, instance) -> str:
+        if not instance.result:
+            return ""
+        return _outcome_names(self.context).get(instance.result, instance.result)
+
+    def get_successful(self, instance) -> bool | None:
+        from sales.call_outcomes import SUCCESSFUL
+
+        return instance.result_standard in SUCCESSFUL if instance.result_standard else None
 
     def get_customer_name(self, instance) -> str:
         if instance.customer_id:

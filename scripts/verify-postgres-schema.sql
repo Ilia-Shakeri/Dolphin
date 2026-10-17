@@ -69,6 +69,7 @@ SELECT (
     AND to_regclass('public.inventory_stockitem') IS NOT NULL
     AND to_regclass('public.inventory_stockmovement') IS NOT NULL
     AND to_regclass('public.inventory_warehouse') IS NOT NULL
+    AND to_regclass('public.sales_calloutcome') IS NOT NULL
     AND to_regclass('public.sales_campaign') IS NOT NULL
     AND to_regclass('public.sales_campaign_responsibles') IS NOT NULL
     AND to_regclass('public.sales_campaignattribution') IS NOT NULL
@@ -76,6 +77,7 @@ SELECT (
     AND to_regclass('public.sales_customer') IS NOT NULL
     AND to_regclass('public.sales_customercategory') IS NOT NULL
     AND to_regclass('public.sales_customerphone') IS NOT NULL
+    AND to_regclass('public.sales_donotcontact') IS NOT NULL
     AND to_regclass('public.sales_ebazarproductlink') IS NOT NULL
     AND to_regclass('public.sales_interaction') IS NOT NULL
     AND to_regclass('public.sales_lead') IS NOT NULL
@@ -102,7 +104,7 @@ SELECT (
     AND to_regclass('public.telephony_originaterequest') IS NOT NULL
     AND to_regclass('public.timeline_personnote') IS NOT NULL
     AND to_regclass('public.timeline_timelineentry') IS NOT NULL
-    -- Every migration this release ships (127), recorded.
+    -- Every migration this release ships (129), recorded.
     AND NOT EXISTS (
         SELECT 1
         FROM (
@@ -228,6 +230,8 @@ SELECT (
                 ('sales', '0036_custom_fields'),
                 ('sales', '0037_pipeline_stages'),
                 ('sales', '0038_seed_pipeline_stages'),
+                ('sales', '0039_call_outcomes'),
+                ('sales', '0040_seed_call_outcomes'),
                 ('scoring', '0001_initial'),
                 ('sessions', '0001_initial'),
                 ('tasks', '0001_initial'),
@@ -242,7 +246,7 @@ SELECT (
               AND django_migrations.name = required_migration.name
         )
     )
-    -- Every named check and unique constraint (274).
+    -- Every named check and unique constraint (281).
     AND NOT EXISTS (
         SELECT 1
         FROM (
@@ -455,6 +459,10 @@ SELECT (
                 ('inventory_warehouse', 'warehouse_default_is_active'),
                 ('inventory_warehouse', 'warehouse_name_nonblank'),
                 ('inventory_warehouse', 'warehouse_normalized_name_nonblank'),
+                ('sales_calloutcome', 'call_outcome_key_shape'),
+                ('sales_calloutcome', 'call_outcome_label_nonblank'),
+                ('sales_calloutcome', 'call_outcome_standard_valid'),
+                ('sales_calloutcome', 'call_outcome_system_is_standard'),
                 ('sales_campaign', 'campaign_dates_ordered'),
                 ('sales_campaign', 'campaign_name_nonblank'),
                 ('sales_campaign', 'campaign_not_own_parent'),
@@ -463,9 +471,12 @@ SELECT (
                 ('sales_customercategory', 'customer_category_name_nonblank'),
                 ('sales_customercategory', 'customer_category_normalized_nonblank'),
                 ('sales_customerphone', 'customer_phone_normalized_shape'),
+                ('sales_donotcontact', 'do_not_contact_lift_complete'),
+                ('sales_donotcontact', 'do_not_contact_phone_shape'),
                 ('sales_interaction', 'interaction_direction_valid'),
                 ('sales_interaction', 'interaction_names_someone'),
                 ('sales_interaction', 'interaction_outcome_nonblank'),
+                ('sales_interaction', 'interaction_qualified_outcome'),
                 ('sales_lead', 'lead_assignment_fields_consistent'),
                 ('sales_lead', 'lead_stage_key_shape'),
                 ('sales_lostreason', 'lost_reason_key_shape'),
@@ -529,7 +540,7 @@ SELECT (
               AND conname = required_constraint.constraint_name
         )
     )
-    -- Every conditional unique constraint (17). A UniqueConstraint
+    -- Every conditional unique constraint (18). A UniqueConstraint
     -- with a condition is a partial unique index, absent from pg_constraint, so it
     -- is proven here: valid, live and unique.
     AND NOT EXISTS (
@@ -549,6 +560,7 @@ SELECT (
                 ('sales_campaign', 'uniq_campaign_system_key'),
                 ('sales_customerphone', 'uniq_active_normalized_phone'),
                 ('sales_customerphone', 'uniq_active_primary_phone'),
+                ('sales_donotcontact', 'uniq_active_do_not_contact'),
                 ('sales_product', 'uniq_product_nonblank_barcode'),
                 ('tasks_task', 'task_source_ref_unique'),
                 ('telephony_extension', 'extension_one_active_per_user'),

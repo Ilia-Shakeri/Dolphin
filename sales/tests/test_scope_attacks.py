@@ -69,7 +69,7 @@ class SalesAgentCollectionScopeAttackTests(TestCase):
             lead=lead,
             phone=phone,
             direction=Interaction.Direction.OUTBOUND,
-            outcome=name,
+            result="connected", outcome=name,
             occurred_at=timezone.now(),
             notes=name,
         )

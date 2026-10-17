@@ -90,7 +90,14 @@ export function setupCampaignDetail() {
     // stage only an invoice reaches («تبدیل‌شده») is shown, never offered.
     function memberRow(member) {
         const row = document.createElement("tr");
-        appendCell(row, member.full_name);
+        const nameCell = appendCell(row, member.full_name);
+        if (member.do_not_contact) {
+            // «عدم تماس مجدد» (2.40.58): not called for marketing again.
+            const flag = document.createElement("span");
+            flag.className = "badge badge-light-danger ms-2";
+            flag.textContent = "عدم تماس مجدد";
+            nameCell.append(flag);
+        }
         appendCell(row, toPersianDigits(member.raw_phone)).dir = "ltr";
         const stageCell = document.createElement("td");
         const current = stageOf("campaign", member.stage);

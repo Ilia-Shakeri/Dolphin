@@ -90,7 +90,7 @@ class FullCrawlTests(TestCase):
         person.refresh_from_db()
         record_interaction(
             actor=cls.agent, lead=container_lead(child, m), target_member=person, phone=person.raw_phone,
-            direction="outbound", outcome="پاسخ داد", occurred_at=timezone.now() - timedelta(hours=2),
+            direction="outbound", result="connected", outcome="پاسخ داد", occurred_at=timezone.now() - timedelta(hours=2),
             next_follow_up_at=timezone.now() + timedelta(days=1),
         )
         person = ensure_customer_for_member(actor=cls.agent, member=person)

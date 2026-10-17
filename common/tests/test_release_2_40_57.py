@@ -196,7 +196,7 @@ class CampaignMemberTests(Base):
         member = self.member()
         record_interaction(
             actor=self.agent, lead=member.lead, target_member=member, phone="09121110057", direction="outbound",
-            outcome="پاسخ داد", occurred_at=member.created_at,
+            result="connected", outcome="پاسخ داد", occurred_at=member.created_at,
         )
         member.refresh_from_db()
         self.assertEqual(member.stage, "contacted")
@@ -289,7 +289,7 @@ class MigrationTests(Base):
         called = create_lead(actor=self.manager, customer=customer, campaign=self.campaign, assignee=self.agent, source="آزمون")
         record_interaction(
             actor=self.manager, lead=called, phone="09121110058", direction="outbound",
-            outcome="پاسخ داد", occurred_at=called.created_at,
+            result="connected", outcome="پاسخ داد", occurred_at=called.created_at,
         )
         done = self.lead()
         cancelled = self.lead()

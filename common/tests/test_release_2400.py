@@ -86,7 +86,7 @@ class BusinessFlowTests(Day):
         mine = people[0]
         call = marketer.post("/api/v1/interactions/", {
             "target_member": mine.pk, "phone": mine.raw_phone, "direction": "outbound",
-            "outcome": "پاسخ داد", "occurred_at": timezone.now().isoformat(),
+            "result": "connected", "outcome": "پاسخ داد", "occurred_at": timezone.now().isoformat(),
         }, format="json")
         self.assertEqual(call.status_code, 201, call.content)
         self.assertEqual(marketer.get(f"/api/v1/interactions/{call.json()['id']}/").status_code, 200)

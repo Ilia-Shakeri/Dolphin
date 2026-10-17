@@ -33,6 +33,8 @@ RANKINGS = {
     "average_amount": "میانگین فاکتور",
     "customers_count": "مشتری تازه",
     "calls_count": "تماس",
+    "successful_calls": "تماس موفق",
+    "qualified_calls": "تماس واجد شرایط",
     "conversion_rate": "نرخ تبدیل سرنخ",
 }
 
@@ -49,6 +51,11 @@ class MarketerRow:
     average_amount: Decimal
     customers_count: int
     calls_count: int
+    #: Calls where someone was really reached, and calls a real need was
+    #: confirmed on (2.40.58, BIZ-003) — counted apart from the calls and
+    #: from the sales, never added into either.
+    successful_calls: int
+    qualified_calls: int
     leads_assigned: int
     leads_completed: int
     conversion_rate: Decimal | None
@@ -74,10 +81,18 @@ def _figures(user_ids, start, end):
         Customer.objects.filter(created_by_id__in=user_ids, created_at__gte=start, created_at__lt=end)
         .values_list("created_by_id").annotate(n=Count("id"))
     )
-    calls = dict(
-        Interaction.objects.filter(agent_id__in=user_ids, occurred_at__gte=start, occurred_at__lt=end)
-        .values_list("agent_id").annotate(n=Count("id"))
-    )
+    from sales.call_outcomes import SUCCESSFUL
+
+    calls = {
+        row["agent_id"]: row
+        for row in Interaction.objects.filter(agent_id__in=user_ids, occurred_at__gte=start, occurred_at__lt=end)
+        .values("agent_id")
+        .annotate(
+            n=Count("id"),
+            successful=Count("id", filter=Q(result_standard__in=SUCCESSFUL)),
+            qualified=Count("id", filter=Q(qualified=True)),
+        )
+    }
     leads = {
         row["assigned_to_id"]: row
         for row in Lead.objects.filter(assigned_to_id__in=user_ids, assigned_at__gte=start, assigned_at__lt=end)
@@ -101,6 +116,7 @@ def _metric_rows(users, start, end):
         count = sold.get("count", 0)
         amount = _money(sold.get("amount"))
         handed = leads.get(user.pk, {})
+        called = calls.get(user.pk, {})
         assigned = handed.get("assigned", 0)
         completed = handed.get("completed", 0)
         rows[user.pk] = {
@@ -109,7 +125,9 @@ def _metric_rows(users, start, end):
             "collected_amount": _money(sold.get("paid")),
             "average_amount": (amount / count).quantize(MONEY_QUANTUM, rounding=ROUND_HALF_UP) if count else Decimal("0.00"),
             "customers_count": customers.get(user.pk, 0),
-            "calls_count": calls.get(user.pk, 0),
+            "calls_count": called.get("n", 0),
+            "successful_calls": called.get("successful", 0),
+            "qualified_calls": called.get("qualified", 0),
             "leads_assigned": assigned,
             "leads_completed": completed,
             "conversion_rate": (Decimal(completed * 100) / assigned).quantize(Decimal("0.1"), rounding=ROUND_HALF_UP) if assigned else None,
@@ -168,6 +186,8 @@ def build_marketer_ranking(*, actor, period_start, period_end, ordering="sales_a
             "collected_amount": sum((row["collected_amount"] for row in current.values()), start=Decimal("0.00")),
             "customers_count": sum(row["customers_count"] for row in current.values()),
             "calls_count": sum(row["calls_count"] for row in current.values()),
+            "successful_calls": sum(row["successful_calls"] for row in current.values()),
+            "qualified_calls": sum(row["qualified_calls"] for row in current.values()),
         },
         "results": results,
     }

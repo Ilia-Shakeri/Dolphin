@@ -16,18 +16,37 @@ export async function setupInteractions() {
             const query = new URLSearchParams({page: String(page), ordering: document.getElementById("interaction-ordering").value});
             const search = document.getElementById("interaction-search").value.trim();
             if (search) query.set("search", search);
+            const result = document.getElementById("interaction-result-filter").value;
+            if (result) query.set("result", result);
+            if (document.getElementById("interaction-qualified-filter").checked) query.set("qualified", "true");
             return `/api/v1/interactions/?${query}`;
         }, renderRow: interactionRow,
     });
     const dialog = document.getElementById("create-interaction-dialog");
     const createForm = document.getElementById("create-interaction-form");
     let memberOptions = [];
+    // The outcome list (2.40.58): what each one asks for.
+    let outcomes = [];
+    try { outcomes = JSON.parse(document.getElementById("call-outcomes").textContent); } catch (error) { outcomes = []; }
+    const resultSelect = document.getElementById("create-interaction-result");
+    const qualifiedField = document.getElementById("create-interaction-qualified-field");
+    const qualified = document.getElementById("create-interaction-qualified");
+    const followUp = document.getElementById("create-interaction-follow-up");
+    function syncOutcome() {
+        const chosen = outcomes.find((item) => item.key === resultSelect.value);
+        qualifiedField.hidden = !chosen?.may_qualify;
+        if (qualifiedField.hidden) qualified.checked = false;
+        followUp.required = Boolean(chosen?.needs_follow_up);
+        followUp.closest("div").querySelector("label").classList.toggle("required", followUp.required);
+        document.getElementById("create-interaction-dnc-note").hidden = !chosen?.stops_contact;
+    }
+    resultSelect.addEventListener("change", syncOutcome);
     function renderInteractionReview() {
         renderWizardReview(document.getElementById("create-interaction-review"), [
             ["مشتری", document.getElementById("create-interaction-member").value || "—"],
             ["شماره تماس", document.getElementById("create-interaction-phone").value],
             ["جهت", selectedOptionText(document.getElementById("create-interaction-direction"))],
-            ["نتیجه ثبت‌شده", document.getElementById("create-interaction-outcome").value],
+            ["نتیجهٔ تماس", selectedOptionText(resultSelect) + (qualified.checked ? " — واجد شرایط" : "")],
             ["زمان تماس", document.getElementById("create-interaction-occurred").value],
             ["پیگیری بعدی", document.getElementById("create-interaction-follow-up").value || "—"],
             ["یادداشت", document.getElementById("create-interaction-notes").value || "—"],
@@ -37,6 +56,7 @@ export async function setupInteractions() {
     document.getElementById("open-create-interaction").addEventListener("click", () => {
         createForm.reset();
         clearMessages(createForm);
+        syncOutcome();
         document.getElementById("create-interaction-occurred").value = localDateTimeValue(new Date().toISOString());
         interactionWizard?.goFirst();
         dialog.showModal();
@@ -78,7 +98,8 @@ export async function setupInteractions() {
                 if (slot) slot.textContent = "یکی از هویت‌های جامعه هدف را انتخاب کنید.";
                 return;
             }
-            const payload = formPayload(createForm, ["phone", "direction", "outcome", "notes"]);
+            const payload = formPayload(createForm, ["phone", "direction", "result", "notes"]);
+            payload.qualified = qualified.checked;
             // The campaign comes from the identity, so the two can never
             // disagree about which campaign the call belongs to.
             payload.lead = member.lead;

@@ -104,7 +104,7 @@ class TimelineFixtures(TestCase):
         lead = create_lead(actor=self.manager, customer=self.customer, source="کمپین تاریخچه")
         record_interaction(
             actor=self.manager, lead=lead, phone="09140000001",
-            direction="outbound", outcome="پاسخ داد", occurred_at=self.now - timedelta(days=1),
+            direction="outbound", result="connected", outcome="پاسخ داد", occurred_at=self.now - timedelta(days=1),
         )
         return lead
 
@@ -152,7 +152,7 @@ class OrderingTests(TimelineFixtures):
         # captured in setUp and predates the lead's own `created_at`.
         record_interaction(
             actor=self.manager, lead=old_lead, phone="09140000002",
-            direction="inbound", outcome="تماس تازه", occurred_at=timezone.now(),
+            direction="inbound", result="connected", outcome="تماس تازه", occurred_at=timezone.now(),
         )
         events = self.timeline()["events"]
         self.assertEqual(events[0]["kind"], "interaction")
@@ -168,7 +168,7 @@ class OrderingTests(TimelineFixtures):
         lead = create_lead(actor=self.manager, customer=self.customer, source="کمپین ترتیب")
         record_interaction(
             actor=self.manager, lead=lead, phone="09140000003",
-            direction="outbound", outcome="تماس قدیمی", occurred_at=self.now - timedelta(days=30),
+            direction="outbound", result="connected", outcome="تماس قدیمی", occurred_at=self.now - timedelta(days=30),
         )
         events = self.timeline()["events"]
         # The lead was created just now; the call happened a month ago.
@@ -180,7 +180,7 @@ class OrderingTests(TimelineFixtures):
         when = self.now - timedelta(days=3)
         record_interaction(
             actor=self.manager, lead=lead, phone="09140000004",
-            direction="outbound", outcome="زمان‌دار", occurred_at=when,
+            direction="outbound", result="connected", outcome="زمان‌دار", occurred_at=when,
         )
         call = next(e for e in self.timeline()["events"] if e["kind"] == "interaction")
         self.assertEqual(call["at"][:10], when.isoformat()[:10])
@@ -340,7 +340,7 @@ class CapTests(TimelineFixtures):
         for index in range(customer_timeline.PER_SOURCE_LIMIT + 10):
             record_interaction(
                 actor=self.manager, lead=lead, phone="09140000009",
-                direction="outbound", outcome=f"تماس {index}",
+                direction="outbound", result="connected", outcome=f"تماس {index}",
                 occurred_at=self.now - timedelta(minutes=index),
             )
         self.an_invoice()

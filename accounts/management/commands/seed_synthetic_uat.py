@@ -172,7 +172,7 @@ class Command(BaseCommand):
                 lead=lead,
                 phone="09000000000",
                 direction=Interaction.Direction.OUTBOUND,
-                outcome="answered",
+                result="connected", outcome="answered",
                 occurred_at=event_time,
                 notes="تعامل ساختگی آزمون پذیرش",
             )

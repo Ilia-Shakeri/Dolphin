@@ -16,6 +16,7 @@ from common.exceptions import BusinessConflictError, BusinessPermissionDenied, B
 from common.phones import normalize_customer_phone
 from sales.customer_backfill import clean_label, normalize_label
 from sales.models import CAMPAIGN_NAME_MAX_LENGTH, Campaign, Customer, Lead, StageChange, TargetAudienceMember
+from sales.call_outcomes import refuse_if_blocked
 from sales.pipeline import record_system_move
 from sales.services import (
     ELEVATED_OPERATORS,
@@ -290,6 +291,8 @@ def add_campaign_member(*, actor, campaign, full_name, raw_phone, notes="", assi
     if not name:
         raise BusinessRuleError({"full_name": "این فیلد الزامی است."})
     normalized = normalize_customer_phone(raw_phone)
+    # «عدم تماس مجدد» (2.40.58): never back into a campaign.
+    refuse_if_blocked(normalized)
     if TargetAudienceMember.objects.filter(campaign=locked, normalized_phone=normalized).exists():
         raise BusinessConflictError({"raw_phone": "این شماره قبلاً در این کمپین ثبت شده است."})
     lead = container_lead(locked, actor)

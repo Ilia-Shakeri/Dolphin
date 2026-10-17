@@ -309,7 +309,7 @@ class TimelineApiTests(Fixtures):
         reassign_lead(actor=self.manager, lead=lead, to_user=self.agent)
         record_interaction(
             actor=self.agent, lead=lead, phone="09150000999", direction="outbound",
-            outcome="پاسخ داد", occurred_at=timezone.now() - timedelta(hours=1),
+            result="connected", outcome="پاسخ داد", occurred_at=timezone.now() - timedelta(hours=1),
         )
         data = self.api(self.manager).get(f"/api/v1/profiles/user/{self.agent.pk}/timeline/").data
         kinds = {event["kind"] for event in data["events"]}

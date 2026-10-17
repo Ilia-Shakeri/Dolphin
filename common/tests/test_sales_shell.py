@@ -214,7 +214,7 @@ class SalesShellScopeTests(TestCase):
             lead=lead,
             phone=phone,
             direction=Interaction.Direction.OUTBOUND,
-            outcome="ثبت دستی",
+            result="connected", outcome="ثبت دستی",
             occurred_at=timezone.now(),
         )
         return customer, lead, interaction
@@ -413,6 +413,7 @@ class SalesShellApiTests(TestCase):
                 "lead": self.lead.pk,
                 "phone": "09125556666",
                 "direction": "outbound",
+                "result": "connected",
                 "outcome": "ثبت",
                 "occurred_at": timezone.now().isoformat(),
                 "agent_display": "fake",

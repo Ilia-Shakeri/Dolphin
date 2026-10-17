@@ -509,6 +509,8 @@ class DatabasePrivilegeContractTests(SimpleTestCase):
             "sales_pipelinestage": "SELECT, INSERT, UPDATE",
             "sales_lostreason": "SELECT, INSERT, UPDATE",
             "sales_stagechange": "SELECT, INSERT",
+            "sales_calloutcome": "SELECT, INSERT, UPDATE",
+            "sales_donotcontact": "SELECT, INSERT, UPDATE",
             # Integrations (2.21.0): tokens are revoked in place, never deleted;
             # log rows are only ever added or pruned.
             "integrations_apitoken": "SELECT, INSERT, UPDATE, DELETE",

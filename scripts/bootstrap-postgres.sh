@@ -692,6 +692,10 @@ FROM (
         ('sales_pipelinestage', 'SELECT, INSERT, UPDATE'),
         ('sales_lostreason', 'SELECT, INSERT, UPDATE'),
         ('sales_stagechange', 'SELECT, INSERT'),
+        -- Call outcomes (2.40.58): the list a company extends (never deleted),
+        -- and the do-not-contact list, whose rows are ended, not removed.
+        ('sales_calloutcome', 'SELECT, INSERT, UPDATE'),
+        ('sales_donotcontact', 'SELECT, INSERT, UPDATE'),
         -- Person profile (2.20.0). A score snapshot is history (append-only);
         -- the weights are one edited singleton row. A task moves between
         -- states and may be removed by whoever holds `tasks.delete`; a note is

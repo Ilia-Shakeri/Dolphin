@@ -43,7 +43,15 @@ export function interactionRow(interaction) {
     appendCell(row, interaction.customer_name || interaction.customer);
     appendCell(row, interaction.phone).dir = "ltr";
     appendCell(row, directionText(interaction.direction));
-    appendCell(row, interaction.outcome);
+    // The outcome from the list (2.40.58); an older call not matched to it
+    // shows its own words. A qualified call says so beside it.
+    const outcomeCell = appendCell(row, interaction.result_label || interaction.outcome);
+    if (interaction.qualified) {
+        const badge = document.createElement("span");
+        badge.className = "badge badge-light-success ms-2";
+        badge.textContent = "واجد شرایط";
+        outcomeCell.append(badge);
+    }
     appendCell(row, displayDate(interaction.occurred_at));
     appendCell(row, displayDate(interaction.next_follow_up_at));
     appendDetailLink(row, `/interactions/${interaction.id}/`);

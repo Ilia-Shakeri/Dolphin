@@ -182,7 +182,7 @@ class CustomerRelatedRecordsTests(TestCase):
         )
         self.call = record_interaction(
             actor=self.manager, lead=self.campaign, target_member=member, phone="09125556677",
-            direction="outbound", outcome="پاسخ داد", occurred_at=timezone.now(),
+            direction="outbound", result="connected", outcome="پاسخ داد", occurred_at=timezone.now(),
         )
         self.customer = create_customer_with_phone(
             actor=self.manager, full_name="مخاطب", phone={"raw_phone": "09125556677", "is_primary": True}

@@ -586,9 +586,25 @@ class InteractionViewSet(AdminHardDeleteModelViewSet):
     http_method_names = ["get", "post", "head", "options"]
     search_fields = ["phone", "outcome", "notes", "lead__customer__full_name"]
     ordering_fields = ["occurred_at", "next_follow_up_at", "created_at"]
+    #: `result` (2.40.58): one outcome of the list, or `legacy` for older calls
+    #: not matched to it yet; `qualified=true` the calls a real need was found on.
+    list_query_parameters = {"result", "qualified"}
 
     def get_queryset(self):
-        return interactions_for(self.request.user).select_related("lead", "customer", "agent")
+        queryset = interactions_for(self.request.user).select_related("lead", "customer", "agent", "target_member")
+        result = self.request.query_params.get("result")
+        if result:
+            from sales.models import CallOutcome
+
+            if result == "legacy":
+                queryset = queryset.filter(result="")
+            elif CallOutcome.objects.filter(key=result).exists():
+                queryset = queryset.filter(result=result)
+            else:
+                raise ValidationError({"result": "نتیجه را از فهرست انتخاب کنید."})
+        if self.request.query_params.get("qualified") == "true":
+            queryset = queryset.filter(qualified=True)
+        return queryset
 
 
 class TargetAudienceMemberViewSet(SensitiveActionThrottleMixin, AdminHardDeleteModelViewSet):

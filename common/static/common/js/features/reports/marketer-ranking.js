@@ -17,6 +17,8 @@ const METRICS = {
     average_amount: {value: (row) => Number(row.average_amount), show: (row) => money(row.average_amount)},
     customers_count: {value: (row) => row.customers_count, show: (row) => `${count(row.customers_count)} مشتری`},
     calls_count: {value: (row) => row.calls_count, show: (row) => `${count(row.calls_count)} تماس`},
+    successful_calls: {value: (row) => row.successful_calls, show: (row) => `${count(row.successful_calls)} تماس موفق`},
+    qualified_calls: {value: (row) => row.qualified_calls, show: (row) => `${count(row.qualified_calls)} واجد شرایط`},
     conversion_rate: {value: (row) => Number(row.conversion_rate || 0), show: (row) => percent(row.conversion_rate)},
 };
 
@@ -173,6 +175,8 @@ export async function setupMarketerRanking() {
             cell(money(row.average_amount));
             cell(count(row.customers_count));
             cell(count(row.calls_count));
+            cell(count(row.successful_calls));
+            cell(count(row.qualified_calls));
             cell(`${count(row.leads_completed)} / ${count(row.leads_assigned)}`);
             cell(percent(row.conversion_rate));
             return tr;

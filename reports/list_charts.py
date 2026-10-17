@@ -346,7 +346,25 @@ def sales_by_agent(actor, narrow=None):
 
 
 def interactions_by_outcome(actor, narrow=None):
-    return _counted(_grouped_count(_narrowed(interactions_for, actor, narrow), "outcome"))
+    """By the outcome chosen from the list (2.40.58), named as the company
+    named it; an older call not matched to the list counts under its own
+    words, so nothing recorded disappears from the chart."""
+    from sales.models import CallOutcome
+
+    scoped = _narrowed(interactions_for, actor, narrow)
+    labels = dict(CallOutcome.objects.values_list("key", "label"))
+    listed = _grouped_count(scoped.exclude(result=""), "result")
+    older = _grouped_count(scoped.filter(result=""), "outcome")
+    return _counted([(labels.get(key, key), total) for key, total in listed] + list(older))
+
+
+def _outcome_options():
+    def build(_queryset):
+        from sales.call_outcomes import outcomes
+
+        return [{"value": outcome.key, "label": outcome.label} for outcome in outcomes()]
+
+    return build
 
 
 # --- the registry -----------------------------------------------------------
@@ -496,8 +514,7 @@ CHART_FILTERS = {
     "interactions": (
         ChartFilter("agent", "بازاریاب", "همهٔ بازاریاب‌ها", "agent_id",
                     _related_options("agent_id", "agent__username")),
-        ChartFilter("outcome", "نتیجه", "همهٔ نتیجه‌ها", "outcome",
-                    _text_options("outcome")),
+        ChartFilter("result", "نتیجه", "همهٔ نتیجه‌ها", "result", _outcome_options()),
     ),
     # Free text until 3.0.0, so the options are whatever this deployment's
     # rows actually hold rather than the vocabulary — which keeps a filter

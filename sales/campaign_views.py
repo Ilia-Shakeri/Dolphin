@@ -119,12 +119,14 @@ class CampaignMemberSerializer(serializers.ModelSerializer):
     stage_kind = serializers.SerializerMethodField()
     lost_reason_label = serializers.SerializerMethodField()
     assigned_to_display = serializers.SerializerMethodField()
+    #: On the «عدم تماس مجدد» list (2.40.58): not called for marketing again.
+    do_not_contact = serializers.SerializerMethodField()
 
     class Meta:
         model = TargetAudienceMember
         fields = [
             "id", "campaign", "campaign_name", "full_name", "raw_phone", "stage", "stage_display", "stage_kind", "lost_reason",
-            "lost_reason_key", "lost_reason_label",
+            "lost_reason_key", "lost_reason_label", "do_not_contact",
             "assigned_to", "assigned_to_display", "next_follow_up_at", "converted_at", "was_customer_on_entry",
             "status", "customer", "created_at",
         ]
@@ -138,6 +140,15 @@ class CampaignMemberSerializer(serializers.ModelSerializer):
 
     def get_lost_reason_label(self, instance) -> str:
         return lost_reason_name(self.context, "campaign", instance.lost_reason_key)
+
+    def get_do_not_contact(self, instance) -> bool:
+        # One query for the whole page: the numbers of every row the list holds.
+        if "_blocked" not in self.context:
+            from sales.call_outcomes import blocked_numbers
+
+            rows = getattr(self.parent, "instance", None) or [instance]
+            self.context["_blocked"] = blocked_numbers([row.normalized_phone for row in rows])
+        return instance.normalized_phone in self.context["_blocked"]
 
     def get_assigned_to_display(self, instance) -> str:
         user = instance.assigned_to
