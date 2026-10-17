@@ -192,23 +192,44 @@ class PostalMiniStepperTests(SimpleTestCase):
         self.assertIn("postalStatusCell(row, item, status)", body)
         self.assertNotIn('appendCell(row, item.postal_status)', body)
 
-    def test_four_icons_sit_flush_against_each_other(self):
-        """"سرهم به هم متصل" — connected, not merely nearby: the rail is
-        one continuous line and the marks carry no gap of their own.
+    def test_four_marks_sit_on_one_continuous_rail(self):
+        """"سرهم به هم متصل" — connected, not merely nearby.
+
+        The 2.40.56 redesign made that literal: the four marks are evenly
+        spaced on a single rail element that runs behind them and is filled
+        up to the stage the parcel has reached, instead of four round marks
+        touching through per-item half-rails. The requirement is unchanged;
+        only its construction is.
 
         `rule()` matches by substring of the selector text, so a bare
         `.postal-mini-step` query also matches `.postal-mini-stepper` and
         `.postal-mini-step-current` — this pins the exact single-class rule
         by its own opening line instead."""
-        self.assertIn("display: inline-flex", rule(".postal-mini-stepper"))
-        mark = exact_rule(".postal-mini-step")
-        self.assertNotIn("gap", mark)
-        self.assertNotIn("margin", mark)
+        stepper = exact_rule(".postal-mini-stepper")
+        self.assertIn("display: grid", stepper)
+        self.assertIn("repeat(var(--postal-stops), minmax(0, 1fr))", stepper)
+        rail = exact_rule(".postal-mini-rail")
+        self.assertIn("position: absolute", rail)
+        # Behind the marks, which sit on it rather than beside it.
+        self.assertIn("z-index: 0", rail)
+        self.assertIn("z-index: 1", exact_rule(".postal-mini-step"))
+        # Filled only as far as the stage the server reported.
+        self.assertIn("width: var(--postal-progress)", exact_rule(".postal-mini-rail-fill"))
 
     def test_the_current_mark_is_visibly_lit(self):
-        body = exact_rule(".postal-mini-step-current")
+        body = exact_rule(".postal-mini-step-current .postal-mini-mark")
         self.assertIn("var(--bs-primary)", body)
         self.assertIn("box-shadow", body)
+
+    def test_each_mark_is_named_under_it(self):
+        """The compact stepper used to be icons only, with the stage's name
+        reachable only through `title`/`aria-label`. The redesign writes it
+        under each mark; the `title` stays for the one long label that has
+        to be cut short."""
+        body = function_body("postalStatusCell", SCRIPT)
+        self.assertIn('label.className = "postal-mini-label"', body)
+        self.assertIn("label.textContent = step.label", body)
+        self.assertIn("text-overflow: ellipsis", exact_rule(".postal-mini-label"))
 
 
 INBOUND_SMS_REPORT = (TEMPLATES / "reports" / "inbound_sms.html").read_text(encoding="utf-8")

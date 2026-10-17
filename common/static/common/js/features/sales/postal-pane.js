@@ -13,6 +13,12 @@ import {loadAllPages} from "dolphin/ui/lists.js";
  * customer, open its full page. Everything is read from the same endpoints
  * the full detail page uses; nothing here decides a status or a permission —
  * the server does, and the status form only appears for whoever may manage.
+ *
+ * 2.40.56 redrew it to the product owner's redesign: the shipment's own
+ * heading, then one boxed section per question — where it is, where it goes
+ * next, what is known about it, what has happened to it — instead of four
+ * plain blocks running together. The data, the endpoints and the permission
+ * boundary are untouched.
  */
 function el(tag, className = "", text = null) {
     const node = document.createElement(tag);
@@ -26,6 +32,18 @@ function icon(name, paths = 2, extra = "") {
     node.setAttribute("aria-hidden", "true");
     for (let path = 1; path <= paths; path += 1) node.append(el("span", `path${path}`));
     return node;
+}
+
+/** A section's own heading: its icon, its name, and whatever belongs opposite. */
+function sectionHead(glyph, paths, title, trailing = null) {
+    const head = el("div", "postal-section-head");
+    const named = el("div", "postal-section-title");
+    const badge = el("span", "postal-section-icon");
+    badge.append(icon(glyph, paths, "fs-4"));
+    named.append(badge, el("h3", "fs-6 fw-bold text-gray-900 mb-0", title));
+    head.append(named);
+    if (trailing) head.append(trailing);
+    return head;
 }
 
 function stepper(steps) {
@@ -42,18 +60,25 @@ function stepper(steps) {
     return list;
 }
 
-function fact(label, value) {
-    const row = el("div", "postal-fact");
-    row.append(el("span", "postal-fact-label", label), el("span", "postal-fact-value", value || "—"));
+function fact(glyph, paths, label, value, {wide = false} = {}) {
+    const row = el("div", `postal-fact${wide ? " postal-fact-wide" : ""}`);
+    const head = el("span", "postal-fact-label");
+    head.append(icon(glyph, paths, "fs-6"), el("span", "", label));
+    row.append(head, el("span", "postal-fact-value", value || "—"));
     return row;
 }
 
-function historyList(rows) {
+function historyList(rows, currentStatus, currentTone) {
     if (!rows.length) return el("p", "text-muted mb-0", "هنوز تغییری ثبت نشده است.");
     const list = el("ol", "postal-timeline");
-    rows.forEach((row) => {
+    rows.forEach((row, index) => {
         const item = el("li", "postal-timeline-item");
-        const dot = el("span", "postal-timeline-dot");
+        // Only the newest row is coloured, and only when it really is the
+        // status the document is in now — the history endpoint sends each
+        // row's icon but no tone of its own, and colouring the rest would be
+        // this file deciding what a past status meant.
+        const tone = index === 0 && row.to_status && row.to_status === currentStatus ? currentTone : null;
+        const dot = el("span", `postal-timeline-dot${tone ? ` postal-timeline-dot-${tone}` : ""}`);
         const glyph = row.to_status_icon?.icon;
         dot.append(glyph ? icon(glyph, row.to_status_icon.icon_paths || 2, "fs-5") : el("span", "", "•"));
         const body = el("div", "postal-timeline-body");
@@ -104,20 +129,26 @@ export function setupPostalPane({workspace, onChanged}) {
 
         // Head: the number (copyable), the customer, and a way back on a phone.
         const head = el("div", "postal-pane-head");
-        const back = el("button", "btn btn-sm btn-icon btn-light d-lg-none");
+        const back = el("button", "btn btn-sm btn-icon btn-light d-lg-none postal-pane-back");
         back.type = "button";
         back.setAttribute("aria-label", "بازگشت به فهرست مرسوله‌ها");
-        back.append(icon("di-arrow-left", 2, "fs-3"));
+        // Right, not left: in RTL «back» points the way the list is, which
+        // is what the chat page's own back button already does.
+        back.append(icon("di-arrow-right", 2, "fs-3"));
         back.addEventListener("click", () => workspace.classList.remove("is-viewing"));
-        const titles = el("div", "d-flex flex-column gap-1 min-w-0");
+        const mark = el("span", "postal-pane-icon");
+        mark.setAttribute("aria-hidden", "true");
+        mark.append(icon("di-package", 3, "fs-2hx"));
+        const titles = el("div", "postal-pane-titles");
+        titles.append(el("span", "postal-pane-label", "شماره سند"));
         const number = el("h2", "fs-2 fw-bolder text-gray-900 mb-0 postal-pane-number", item.document_number);
         number.dir = "ltr";
         titles.append(number);
-        const who = el("a", "text-gray-700 text-hover-primary fw-semibold", item.customer_name || "—");
+        const who = el("a", "postal-pane-customer text-hover-primary fw-semibold", item.customer_name || "—");
         who.href = `/customers/${item.customer}/`;
         titles.append(who);
-        const tools = el("div", "d-flex flex-wrap gap-2 ms-auto");
-        const copy = el("button", "btn btn-sm btn-light d-inline-flex align-items-center gap-2");
+        const tools = el("div", "postal-pane-tools");
+        const copy = el("button", "btn btn-sm btn-light postal-pane-action");
         copy.type = "button";
         copy.append(el("i", "di-outline di-copy fs-5"), el("span", "", "کپی شماره"));
         copy.addEventListener("click", async () => {
@@ -126,23 +157,38 @@ export function setupPostalPane({workspace, onChanged}) {
                 globalMessage("شمارهٔ سند کپی شد.", true);
             } catch (error) { showError(error); }
         });
-        const full = el("a", "btn btn-sm btn-light-primary d-inline-flex align-items-center gap-2");
+        const full = el("a", "btn btn-sm btn-light-primary postal-pane-action");
         full.href = `/sales-documents/${item.id}/`;
         full.append(icon("di-exit-up", 2, "fs-5"), el("span", "", "صفحهٔ کامل"));
         tools.append(copy, full);
-        head.append(back, titles, tools);
+        head.append(back, mark, titles, tools);
         nodes.push(head);
 
         // Where it is: the post office's own status first, then the stages.
-        const status = el("section", "postal-pane-section");
         const badge = postalBadge(item.postal_badge);
-        const statusHead = el("div", "d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4");
-        statusHead.append(el("h3", "fs-6 fw-bold text-gray-800 mb-0", "وضعیت ارسال"));
-        if (badge) statusHead.append(badge);
-        else statusHead.append(el("span", "text-muted", item.postal_status_display || item.postal_status || "—"));
-        status.append(statusHead);
-        if (item.postal_stepper && item.postal_stepper.length) status.append(stepper(item.postal_stepper));
-        if (!item.is_active) status.append(el("p", "text-warning-emphasis fs-7 mt-3 mb-0", "این سند غیرفعال است؛ تاریخچه‌اش حفظ شده است."));
+        const tone = item.postal_badge?.tone || "";
+        const status = el("section", "postal-pane-section postal-pane-status");
+        if (tone === "danger" || tone === "warning") status.classList.add(`postal-pane-status-${tone}`);
+        status.append(sectionHead("di-parcel-tracking", 3, "وضعیت ارسال",
+            badge || el("span", "text-muted fs-7", item.postal_status_display || item.postal_status || "—")));
+        if (item.postal_stepper && item.postal_stepper.length) {
+            status.append(stepper(item.postal_stepper));
+        } else {
+            // No stepper on purpose: the server sends none for a status
+            // outside the four stages (a return, a seizure) or for free text
+            // from before the vocabulary, and four marks with none of them
+            // current would claim to know where the parcel is when nobody does.
+            const note = el("div", "postal-pane-note");
+            note.append(icon("di-information-5", 3, "fs-5"),
+                el("span", "", "این وضعیت بیرون از چهار مرحلهٔ ارسال است، پس مرحله‌ای برای آن نمایش داده نمی‌شود."));
+            status.append(note);
+        }
+        if (!item.is_active) {
+            const inactive = el("div", "postal-pane-note postal-pane-note-warning");
+            inactive.append(icon("di-information-5", 3, "fs-5"),
+                el("span", "", "این سند غیرفعال است؛ تاریخچه‌اش حفظ شده است."));
+            status.append(inactive);
+        }
         nodes.push(status);
 
         // Moving it on, for whoever may.
@@ -152,8 +198,10 @@ export function setupPostalPane({workspace, onChanged}) {
             const select = el("select", "form-select form-select-solid");
             select.id = "postal-pane-to-status";
             select.name = "to_status";
-            const label = el("label", "form-label fw-semibold required", "تغییر وضعیت");
-            label.setAttribute("for", select.id);
+            select.setAttribute("aria-label", "وضعیت تازه");
+            // The section heading names it on screen, so the control carries its
+            // own name and its requiredness for anyone who cannot see that heading.
+            select.required = true;
             const reason = el("input", "form-control form-control-solid");
             reason.name = "reason";
             reason.maxLength = 500;
@@ -161,9 +209,11 @@ export function setupPostalPane({workspace, onChanged}) {
             reason.setAttribute("aria-label", "توضیح تغییر وضعیت");
             const submit = el("button", "btn btn-primary", "ثبت وضعیت");
             submit.type = "submit";
+            form.append(sectionHead("di-arrows-loop", 2, "تغییر وضعیت",
+                el("span", "text-muted fs-8 postal-section-hint", "وضعیت تازه را انتخاب و ثبت کنید")));
             const row = el("div", "postal-pane-move-row");
             row.append(select, reason, submit);
-            form.append(label, row);
+            form.append(row);
             fillPostalStates(select, {emptyLabel: "یک وضعیت انتخاب کنید"}).catch(showError);
             form.addEventListener("submit", async (event) => {
                 event.preventDefault();
@@ -186,21 +236,23 @@ export function setupPostalPane({workspace, onChanged}) {
         }
 
         // Where to, and who.
-        const facts = el("section", "postal-pane-section postal-facts");
+        const facts = el("section", "postal-facts");
         facts.append(
-            fact("استان / شهر", [item.province_snapshot, item.city_snapshot].filter(Boolean).join(" / ")),
-            fact("کد پستی", item.postal_code_snapshot ? toPersianDigits(item.postal_code_snapshot) : ""),
-            fact("نشانی", item.address_snapshot),
-            fact("ثبت", `${item.registered_by_display || ""} · ${displayDate(item.registered_at)}`),
-            fact("فروش مرتبط", item.sale ? `فروش ${toPersianDigits(String(item.sale))}` : ""),
-            fact("یادداشت", item.notes),
+            fact("di-geolocation", 2, "استان / شهر", [item.province_snapshot, item.city_snapshot].filter(Boolean).join(" / ")),
+            fact("di-barcode", 8, "کد پستی", item.postal_code_snapshot ? toPersianDigits(item.postal_code_snapshot) : ""),
+            fact("di-home-2", 2, "نشانی", item.address_snapshot, {wide: true}),
+            fact("di-calendar", 2, "ثبت", `${item.registered_by_display || ""} · ${displayDate(item.registered_at)}`),
+            fact("di-dollar", 3, "فروش مرتبط", item.sale ? `فروش ${toPersianDigits(String(item.sale))}` : ""),
+            fact("di-notepad", 5, "یادداشت", item.notes, {wide: true}),
         );
         nodes.push(facts);
 
         // What happened, newest first.
-        const timeline = el("section", "postal-pane-section");
-        timeline.append(el("h3", "fs-6 fw-bold text-gray-800 mb-4", "تاریخچهٔ وضعیت"));
-        timeline.append(historyList(history));
+        const whole = el("a", "btn btn-sm btn-link postal-section-link", "مشاهدهٔ همه");
+        whole.href = `/sales-documents/${item.id}/`;
+        const timeline = el("section", "postal-pane-section postal-pane-history");
+        timeline.append(sectionHead("di-time", 2, "تاریخچهٔ وضعیت", whole));
+        timeline.append(historyList(history, item.postal_status, tone));
         nodes.push(timeline);
 
         placeholder.hidden = true;

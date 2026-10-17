@@ -1,5 +1,6 @@
 import {apiRequest} from "dolphin/core/api.js";
 import {toPersianDigits} from "dolphin/core/digits.js";
+import {displayDay} from "dolphin/core/jalali.js";
 import {clearMessages, formPayload, globalMessage, showError, withSubmit} from "dolphin/core/messages.js";
 import {setupPostalPane} from "dolphin/features/sales/postal-pane.js";
 import {fillPostalStates, postalBadge} from "dolphin/features/sales/shared.js";
@@ -10,35 +11,53 @@ import {setupListFilter} from "dolphin/ui/popover.js";
 import {renderWizardReview, selectedOptionText, setupWizard} from "dolphin/ui/wizard.js";
 
 /**
- * The four postal stops as small connected icons — the row version of
- * `renderPostalStepper`'s own card.
+ * The four postal stops as one connected rail inside the card's status box —
+ * the row version of `renderPostalStepper`'s own card.
  *
  * Product owner, 2026-09-21: «وضعیت پستی باید ۴ تا ایکون پست سرهم به هم
  * متصل باشد و در هر مرحله‌ای است باید این ایکون روشن باشد». The list
  * this belongs to is «رهگیری پستی» (`sales_documents/list.html`) — a
- * table of documents, not one document's own page — so each row gets
- * the compact form: icons only, no label or description text, the
- * current stage's icon lit and named in a `title` for anyone who
- * hovers or uses a screen reader. `item.postal_stepper` is the same
- * four-entry list `SalesDocumentSerializer` already computes from
- * `sales/postal.py` for the detail page; nothing about the states,
- * their order or their icons is repeated here.
+ * list of documents, not one document's own page — so each card gets
+ * the compact form. Since the 2.40.56 redesign the four marks sit on a
+ * single rail that fills up to the stage the parcel has reached, with each
+ * stop named underneath; connected is now literally one line rather than
+ * four marks touching. `item.postal_stepper` is the same four-entry list
+ * `SalesDocumentSerializer` already computes from `sales/postal.py` for the
+ * detail page; nothing about the states, their order or their icons is
+ * repeated here.
  *
- * A document whose stored status predates the vocabulary (free text)
- * gets an empty `postal_stepper` from the server, and this falls back
- * to that raw text — the same choice `renderPostalStepper` makes for
- * the same reason: four icons with none of them current would claim to
- * know where the parcel is when nobody does.
+ * A document whose stored status predates the vocabulary (free text), or
+ * whose post-office status is outside the four stages (a return, a seizure),
+ * gets an empty `postal_stepper` from the server, and this falls back to that
+ * status alone — the same choice `renderPostalStepper` makes for the same
+ * reason: four marks with none of them current would claim to know where the
+ * parcel is when nobody does.
  */
 function postalStatusCell(row, item, cell = document.createElement("td")) {
     const steps = item.postal_stepper;
-    // The post office's own status, with its icon, beside the stepper
-    // (2.40.26) — and alone for a status outside the four stages (a return,
-    // a seizure), which the stepper cannot place.
+    // The post office's own status, with its icon, above the rail
+    // (2.40.26) — and alone for a status outside the four stages, which
+    // the stepper cannot place.
     const badge = postalBadge(item.postal_badge);
+    const head = document.createElement("div");
+    head.className = "postal-card-status-head";
+    const caption = document.createElement("span");
+    caption.className = "postal-card-status-caption";
+    caption.textContent = "مسیر مرسوله";
+    head.append(caption);
+    if (badge) head.append(badge);
+    else {
+        const plain = document.createElement("span");
+        plain.className = "postal-card-status-plain";
+        plain.textContent = item.postal_status_display || item.postal_status || "—";
+        head.append(plain);
+    }
+    cell.append(head);
     if (!steps || !steps.length) {
-        if (badge) cell.append(badge);
-        else cell.textContent = item.postal_status || "—";
+        const note = document.createElement("span");
+        note.className = "postal-card-status-note";
+        note.textContent = "بیرون از چهار مرحلهٔ ارسال";
+        cell.append(note);
         row.appendChild(cell);
         return;
     }
@@ -46,31 +65,46 @@ function postalStatusCell(row, item, cell = document.createElement("td")) {
     list.className = "postal-mini-stepper";
     const current = steps.find((step) => step.stage === "current");
     list.setAttribute("aria-label", `وضعیت پستی: ${current ? current.label : item.postal_status_display || ""}`);
+    // How far the rail is filled: the share of the way from the first mark to
+    // the last that the parcel has actually travelled — the current stage's
+    // own place in the server's list, never a count of anything drawn here.
+    const reached = current ? steps.indexOf(current) : steps.filter((step) => step.stage === "done").length - 1;
+    const travelled = steps.length > 1 ? Math.max(reached, 0) / (steps.length - 1) : 0;
+    list.style.setProperty("--postal-progress", `${(travelled * 100).toFixed(2)}%`);
+    list.style.setProperty("--postal-stops", String(steps.length));
+    const rail = document.createElement("li");
+    rail.className = "postal-mini-rail";
+    rail.setAttribute("aria-hidden", "true");
+    rail.appendChild(document.createElement("span")).className = "postal-mini-rail-fill";
+    list.append(rail);
     list.append(...steps.map((step) => {
         const mark = document.createElement("li");
         mark.className = `postal-mini-step postal-mini-step-${step.stage}`;
         mark.title = step.label;
+        const dot = document.createElement("span");
+        dot.className = "postal-mini-mark";
         const icon = document.createElement("i");
         icon.className = `di-duotone ${step.icon} fs-6`;
         for (let path = 1; path <= (step.icon_paths || 2); path += 1) {
             icon.appendChild(document.createElement("span")).className = `path${path}`;
         }
-        mark.append(icon);
+        dot.append(icon);
+        const label = document.createElement("span");
+        label.className = "postal-mini-label";
+        label.textContent = step.label;
+        mark.append(dot, label);
         return mark;
     }));
-    const wrap = document.createElement("div");
-    wrap.className = "d-flex flex-column align-items-start gap-1";
-    wrap.append(list);
-    if (badge) wrap.append(badge);
-    cell.append(wrap);
+    cell.append(list);
     row.appendChild(cell);
 }
 
 /**
- * One shipment as a card in the list pane (2.40.34): number and post status
- * on top, the customer, then where it is going and its four stages. The whole
- * card opens the shipment in the pane beside it; a real link inside keeps
- * «open in a new tab» working.
+ * One shipment as a card in the list pane (2.40.34, redrawn 2.40.56): the
+ * number and the day it was registered on top, then the customer with the
+ * place the parcel is going to, then a boxed status line with the post
+ * office's own word and the four stages. The whole card opens the shipment in
+ * the pane beside it; a real link inside keeps «open in a new tab» working.
  */
 function salesDocumentRow(item) {
     const row = document.createElement("tr");
@@ -87,20 +121,87 @@ function salesDocumentRow(item) {
     link.href = `/sales-documents/${item.id}/`;
     link.dir = "ltr";
     link.textContent = item.document_number;
-    top.append(link);
+    const when = document.createElement("span");
+    when.className = "postal-list-date";
+    when.textContent = displayDay(item.registered_at);
+    top.append(link, when);
     const customer = document.createElement("div");
     customer.className = "postal-list-customer";
-    customer.textContent = item.customer_name || "—";
-    const place = document.createElement("div");
+    // The first letter of the name the server sent, not a picture: a
+    // customer has no avatar in this product, and a placeholder face would
+    // be decoration pretending to be a record.
+    const avatar = document.createElement("span");
+    avatar.className = "postal-list-avatar";
+    avatar.setAttribute("aria-hidden", "true");
+    avatar.textContent = (item.customer_name || "—").trim().charAt(0) || "—";
+    const names = document.createElement("div");
+    names.className = "postal-list-names";
+    const name = document.createElement("strong");
+    name.className = "postal-list-name";
+    name.textContent = item.customer_name || "—";
+    const place = document.createElement("span");
     place.className = "postal-list-place";
-    place.textContent = [item.province_snapshot, item.city_snapshot].filter(Boolean).join(" / ") || "بدون نشانی";
+    const pin = document.createElement("i");
+    pin.className = "di-duotone di-geolocation fs-8";
+    pin.setAttribute("aria-hidden", "true");
+    pin.appendChild(document.createElement("span")).className = "path1";
+    pin.appendChild(document.createElement("span")).className = "path2";
+    place.append(pin, document.createTextNode(
+        [item.province_snapshot, item.city_snapshot].filter(Boolean).join(" / ") || "بدون نشانی"
+    ));
+    names.append(name, place);
+    customer.append(avatar, names);
     const status = document.createElement("div");
     status.className = "postal-list-status";
     postalStatusCell(row, item, status);
-    card.append(top, customer, place, status);
+    card.append(top, customer, status);
     cell.append(card);
     row.append(cell);
     return row;
+}
+
+/**
+ * The four stages as chips above the list (2.40.56) — a shortcut to the
+ * «وضعیت پستی» selector inside the filter panel, not a second filter: a chip
+ * writes its value into that same field and reloads, so the vocabulary stays
+ * declared once (`sales/postal.py`, read through `fillPostalStates`) and the
+ * server applies the same narrowing it always did. A status chosen in the
+ * panel that no chip names (one of the post office's own) simply leaves every
+ * chip unlit rather than lying about what is being shown.
+ */
+function setupStageChips(statusSelect, reload) {
+    const host = document.getElementById("sales-documents-stage-chips");
+    if (!host || !statusSelect) return () => {};
+    // `fillPostalStates` writes the stages first and the post office's own
+    // statuses second, each in its own `<optgroup>`; the stages are the group
+    // these chips are for.
+    const group = statusSelect.querySelector("optgroup");
+    const stages = group ? Array.from(group.querySelectorAll("option")) : [];
+    if (!stages.length) return () => {};
+    const chips = [{value: "", label: "همه"}].concat(stages.map((option) => ({value: option.value, label: option.textContent})));
+    const buttons = chips.map((chip) => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "btn btn-sm postal-chip";
+        button.dataset.stage = chip.value;
+        button.textContent = chip.label;
+        button.addEventListener("click", () => {
+            if (statusSelect.value === chip.value) return;
+            statusSelect.value = chip.value;
+            reload();
+        });
+        return button;
+    });
+    host.replaceChildren(...buttons);
+    host.hidden = false;
+    return function syncChips() {
+        buttons.forEach((button) => {
+            const on = button.dataset.stage === statusSelect.value;
+            button.classList.toggle("btn-light-primary", on);
+            button.classList.toggle("btn-light", !on);
+            button.setAttribute("aria-pressed", on ? "true" : "false");
+        });
+    };
 }
 
 /** Why a parcel was left out of a bulk change, in the reader's words. */
@@ -157,9 +258,33 @@ async function setupBulkPostalStatus(controller, refreshPane) {
     });
 }
 
+/**
+ * How many parcels this list holds, said twice (2.40.56): beside its title and
+ * in the figure next to the page heading. Both read `count` from the very
+ * response the rows came from, so neither can show more than the reader's own
+ * scope and filters already allow.
+ */
+function showCount(data, filtered) {
+    const total = Number(data.count);
+    const badge = document.getElementById("sales-documents-count");
+    const stat = document.getElementById("postal-heading-stat");
+    const text = Number.isFinite(total) ? toPersianDigits(String(total)) : "";
+    if (badge) {
+        badge.textContent = text;
+        badge.hidden = !text;
+    }
+    if (!stat) return;
+    if (!text) { stat.hidden = true; return; }
+    document.getElementById("postal-heading-count").textContent = `${text} مرسوله`;
+    document.getElementById("postal-heading-note").textContent = filtered ? "نتیجهٔ فیلتر کنونی" : "همهٔ مرسوله‌های در دسترس شما";
+    stat.hidden = false;
+}
+
 export async function setupSalesDocuments() {
     const form = document.getElementById("sales-document-search-form");
     setupListFilter("sales-document");
+    const narrowing = ["sales-document-postal-status", "sales-document-province", "sales-document-city", "sales-document-active"];
+    let syncChips = () => {};
     const controller = setupPagedList({
         key: "sales-documents",
         form,
@@ -175,10 +300,19 @@ export async function setupSalesDocuments() {
             return `/api/v1/sales-documents/?${query}`;
         },
         renderRow: salesDocumentRow,
+        onLoaded: (data) => {
+            const filtered = Boolean(document.getElementById("sales-document-search").value.trim())
+                || narrowing.some((id) => document.getElementById(id).value.trim());
+            showCount(data, filtered);
+            syncChips();
+        },
     });
     // Every stage and every Iran Post status (2.40.26), grouped.
+    const statusSelect = document.getElementById("sales-document-postal-status");
     try {
-        await fillPostalStates(document.getElementById("sales-document-postal-status"), {emptyLabel: "همهٔ وضعیت‌ها"});
+        await fillPostalStates(statusSelect, {emptyLabel: "همهٔ وضعیت‌ها"});
+        syncChips = setupStageChips(statusSelect, () => controller.load(1));
+        syncChips();
     } catch (error) { showError(error); }
 
     // Two panes (2.40.34): a card opens its shipment beside the list; the

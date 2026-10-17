@@ -2387,7 +2387,7 @@ button.toastr-close-button {
 
 @font-face {
   font-family: "dolphin-icons-duotone";
-  src: url("../fonts/dolphin-icons/dolphin-icons-duotone.woff?v=d97f9b281033") format("woff");
+  src: url("../fonts/dolphin-icons/dolphin-icons-duotone.woff?v=aea5521d928c") format("woff");
   font-weight: normal;
   font-style: normal;
   font-display: block;
@@ -2719,6 +2719,53 @@ button.toastr-close-button {
   content: "\e9cf";
   position: absolute;
   left: 0;
+}
+
+.di-barcode .path1:before {
+  content: "\e9d0";
+}
+
+.di-barcode .path2:before {
+  content: "\e9d1";
+  position: absolute;
+  left: 0;
+}
+
+.di-barcode .path3:before {
+  content: "\e9d2";
+  position: absolute;
+  left: 0;
+}
+
+.di-barcode .path4:before {
+  content: "\e9d3";
+  position: absolute;
+  left: 0;
+}
+
+.di-barcode .path5:before {
+  content: "\e9d4";
+  position: absolute;
+  left: 0;
+}
+
+.di-barcode .path6:before {
+  content: "\e9d5";
+  position: absolute;
+  left: 0;
+}
+
+.di-barcode .path7:before {
+  content: "\e9d6";
+  position: absolute;
+  left: 0;
+}
+
+.di-barcode .path8:before {
+  content: "\e9d7";
+  position: absolute;
+  left: 0;
+  opacity: 0.3;
 }
 
 .di-basket-ok .path1:before {
@@ -4418,7 +4465,7 @@ button.toastr-close-button {
 
 @font-face {
   font-family: "dolphin-icons-outline";
-  src: url("../fonts/dolphin-icons/dolphin-icons-outline.woff?v=3e1271ccee77") format("woff");
+  src: url("../fonts/dolphin-icons/dolphin-icons-outline.woff?v=625dd56b2ca6") format("woff");
   font-weight: normal;
   font-style: normal;
   font-display: block;
@@ -4531,6 +4578,10 @@ button.toastr-close-button {
 
 .di-bank.di-outline:before {
   content: "\e959";
+}
+
+.di-barcode.di-outline:before {
+  content: "\e95a";
 }
 
 .di-basket-ok.di-outline:before {
@@ -4931,7 +4982,7 @@ button.toastr-close-button {
 
 @font-face {
   font-family: "dolphin-icons-solid";
-  src: url("../fonts/dolphin-icons/dolphin-icons-solid.woff?v=6cd80854db48") format("woff");
+  src: url("../fonts/dolphin-icons/dolphin-icons-solid.woff?v=986983d1c634") format("woff");
   font-weight: normal;
   font-style: normal;
   font-display: block;
@@ -5044,6 +5095,10 @@ button.toastr-close-button {
 
 .di-bank.di-solid:before {
   content: "\e959";
+}
+
+.di-barcode.di-solid:before {
+  content: "\e95a";
 }
 
 .di-basket-ok.di-solid:before {

@@ -199,7 +199,13 @@ export function bindLiveSearch(input, onSearch) {
     });
 }
 
-export function setupPagedList({key, form, search, endpoint, renderRow}) {
+/**
+ * `onLoaded` (2.40.56) is handed the response every successful load read —
+ * optional, and the only way a page can see `count` or `next` without
+ * re-requesting what this function already has. «رهگیری پستی» draws the
+ * number of parcels beside its title and next to the page heading from it.
+ */
+export function setupPagedList({key, form, search, endpoint, renderRow, onLoaded}) {
     const loading = document.getElementById(`${key}-loading`);
     if (!loading) return null;
     const empty = document.getElementById(`${key}-empty`);
@@ -225,6 +231,7 @@ export function setupPagedList({key, form, search, endpoint, renderRow}) {
         }
         try {
             const data = await apiRequest(endpoint(page));
+            onLoaded?.(data);
             if (quiet) { empty.hidden = true; wrap.hidden = true; }
             body.replaceChildren(...data.results.map((item) => selection.decorateRow(item, renderRow(item))));
             if (quiet) selection.keepOnlyShown();

@@ -618,41 +618,308 @@ tr.is-leaving > td {
     .marketer-targets-field { grid-template-columns: 1fr; gap: 0.35rem; }
 }
 
-/* Postal tracking in two panes (2.40.34, like the chat page). The list is a
-   column of cards that scrolls on its own beside the shipment on screen; the
-   chosen card carries the accent on its leading edge. On a phone one pane at a
-   time: the list, and the shipment once one is opened (`.is-viewing`). */
+/* Postal tracking in two panes (2.40.34, like the chat page; redrawn to the
+   product owner's redesign in 2.40.56). The list is a column of cards that
+   scrolls on its own beside the shipment on screen; the chosen card carries
+   the accent on its leading edge. On a phone one pane at a time: the list, and
+   the shipment once one is opened (`.is-viewing`).
+
+   Everything below is this page's own component layer — the shapes, spacing
+   and colours all come from the kit's tokens (`--bs-*`, `--dolphin-radius-*`,
+   `--dolphin-ease`), and the controls themselves are the kit's own buttons,
+   inputs, badges and cards. Nothing here redefines one. */
+
+/* --- the figure beside the page heading ----------------------------------- */
+.postal-heading-stat {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.5rem 0.85rem;
+    border: 1px solid var(--bs-gray-200);
+    border-radius: var(--dolphin-radius-control);
+    background: var(--bs-body-bg);
+}
+.postal-heading-dot {
+    flex: 0 0 auto;
+    width: 0.55rem;
+    height: 0.55rem;
+    border-radius: 50%;
+    background: var(--bs-success);
+    box-shadow: 0 0 0 0.25rem var(--bs-success-light);
+}
+.postal-heading-copy { display: flex; flex-direction: column; line-height: 1.45; }
+.postal-heading-copy strong { font-size: 0.88rem; font-weight: 700; color: var(--bs-gray-900); }
+.postal-heading-copy span { font-size: 0.78rem; color: var(--bs-gray-700); }
+@media (max-width: 767.98px) { .postal-heading-stat { display: none; } }
+
+/* --- the list pane -------------------------------------------------------- */
 .postal-list-card { height: 100%; }
 @media (min-width: 992px) {
-    .postal-list-scroll { max-height: calc(100vh - 21rem); overflow-y: auto; margin-inline: -0.5rem; padding-inline: 0.5rem; }
+    .postal-list-scroll { max-height: calc(100vh - 27rem); overflow-y: auto; margin-inline: -0.5rem; padding-inline: 0.5rem; }
     .postal-detail-card { position: sticky; top: calc(var(--bs-app-header-height, 70px) + 1rem); }
 }
-.postal-list-table { border-collapse: separate; border-spacing: 0 0.5rem; }
-.postal-list-table > tbody > tr > td { padding: 0; border: 0; vertical-align: top; }
-.postal-list-table > tbody > tr > td:first-child:not(:last-child) { padding-top: 1rem; padding-inline-end: 0.6rem; width: 1.6rem; }
-.postal-list-row { cursor: pointer; }
-.postal-list-item {
+.postal-kicker { font-size: 0.8rem; font-weight: 700; color: var(--bs-primary); }
+.postal-count-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.6rem;
+    padding: 0.1rem 0.45rem;
+    border-radius: 999px;
+    background: var(--bs-gray-100);
+    color: var(--bs-gray-700);
+    font-size: 0.8rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+.postal-search-row { display: flex; align-items: stretch; gap: 0.6rem; margin-bottom: 0.85rem; }
+.postal-search-row .list-search { flex: 1 1 auto; min-width: 0; }
+.postal-search-row .list-search input { min-width: 0; }
+.postal-search-row .list-filter > .btn { width: 2.75rem; height: 100%; }
+
+/* The four stages as chips: `btn-light` / `btn-light-primary` from the kit,
+   sized down and kept on one scrollable line so a narrow pane never wraps
+   them into a block that pushes the list off the screen. */
+.postal-chips {
+    display: flex;
+    gap: 0.4rem;
+    margin-bottom: 0.85rem;
+    overflow-x: auto;
+    scrollbar-width: none;
+}
+.postal-chips::-webkit-scrollbar { display: none; }
+.postal-chip {
+    flex: 0 0 auto;
+    white-space: nowrap;
+    padding: 0.4rem 0.7rem;
+    border-radius: var(--dolphin-radius-control-sm);
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+.postal-bulk-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-bottom: 0.85rem;
+    padding: 0.5rem 0.6rem 0.5rem 0.75rem;
+    border-radius: var(--dolphin-radius-control);
+    background: var(--bs-primary-light);
+    color: var(--bs-primary);
+    font-size: 0.8rem;
+}
+.postal-list-empty {
     display: flex;
     flex-direction: column;
-    gap: 0.35rem;
-    padding: 0.85rem 1rem;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 3.25rem 1rem;
+    text-align: center;
+}
+.postal-empty-icon {
+    display: inline-grid;
+    place-items: center;
+    width: 3.25rem;
+    height: 3.25rem;
+    margin-bottom: 0.35rem;
+    border-radius: 1rem;
+    background: var(--bs-gray-100);
+    color: var(--bs-gray-600);
+    font-size: 1.5rem;
+}
+.postal-empty-icon i [class^="path"]::before { color: currentColor; }
+
+/* The rows are cards, so the table is laid out as a column rather than as a
+   grid of cells: `setupRowSelection` still inserts its checkbox as the row's
+   own leading cell (every list page in the panel shares that function), and
+   this puts that cell inside the card's own gutter instead of beside it. */
+.postal-list-table,
+.postal-list-table > tbody { display: block; }
+.postal-list-table > tbody > tr > td { display: block; padding: 0; border: 0; }
+.postal-list-row { position: relative; display: block; cursor: pointer; }
+.postal-list-row + .postal-list-row { margin-top: 0.6rem; }
+.postal-list-row > td:first-child:not(:last-child) {
+    position: absolute;
+    top: 1.05rem;
+    inset-inline-start: 0.95rem;
+    z-index: 2;
+    width: auto;
+}
+.postal-list-row > td:first-child:not(:last-child) ~ td .postal-list-item { padding-inline-start: 2.85rem; }
+.postal-list-item {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 0.7rem;
+    padding: 0.9rem;
     border: 1px solid var(--bs-gray-200);
-    border-inline-start: 3px solid transparent;
-    border-radius: 0.85rem;
+    border-radius: var(--dolphin-radius-card);
     background: var(--bs-body-bg);
+    overflow: hidden;
     transition: border-color var(--dolphin-dur-fast) var(--dolphin-ease), box-shadow var(--dolphin-dur-fast) var(--dolphin-ease), transform var(--dolphin-dur-fast) var(--dolphin-ease);
 }
-[data-bs-theme=dark] .postal-list-item { border-color: var(--bs-border-color); border-inline-start-color: transparent; }
-.postal-list-row:hover .postal-list-item { box-shadow: 0 0.6rem 1.4rem -1rem rgb(7 20 55 / 35%); transform: translateY(-1px); }
-.postal-list-row.is-selected .postal-list-item { border-inline-start-color: var(--bs-primary); background: color-mix(in srgb, var(--bs-primary) 6%, var(--bs-body-bg)); }
+[data-bs-theme=dark] .postal-list-item { border-color: var(--bs-border-color); }
+.postal-list-row:hover .postal-list-item {
+    border-color: var(--bs-primary);
+    box-shadow: 0 0.6rem 1.4rem -1rem rgb(7 20 55 / 35%);
+    transform: translateY(-1px);
+}
+.postal-list-row.is-selected .postal-list-item {
+    border-color: var(--bs-primary);
+    background: color-mix(in srgb, var(--bs-primary) 6%, var(--bs-body-bg));
+}
+.postal-list-row.is-selected .postal-list-item::before {
+    content: "";
+    position: absolute;
+    inset-block: 0.6rem;
+    inset-inline-start: 0;
+    width: 3px;
+    border-radius: 3px;
+    background: var(--bs-primary);
+}
 .postal-list-row.is-inactive .postal-list-item { opacity: 0.65; }
-.postal-list-top { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
-.postal-list-number { font-weight: 800; color: var(--bs-gray-900); font-variant-numeric: tabular-nums; }
+.postal-list-top { display: flex; align-items: center; gap: 0.5rem; }
+.postal-list-number { font-size: 1.05rem; font-weight: 800; color: var(--bs-gray-900); font-variant-numeric: tabular-nums; }
 .postal-list-number:hover { color: var(--bs-primary); }
-.postal-list-customer { font-weight: 600; color: var(--bs-gray-800); }
-.postal-list-place { font-size: 0.8rem; color: var(--bs-gray-700); }
-.postal-list-status { margin-top: 0.15rem; }
+.postal-list-date { margin-inline-start: auto; font-size: 0.78rem; color: var(--bs-gray-600); white-space: nowrap; }
+.postal-list-customer { display: flex; align-items: center; gap: 0.6rem; min-width: 0; }
+/* The first letter of the customer's name, not a picture — this product keeps
+   no avatar for a customer, and a stock face would be decoration pretending
+   to be a record. */
+.postal-list-avatar {
+    flex: 0 0 auto;
+    display: inline-grid;
+    place-items: center;
+    width: 2.3rem;
+    height: 2.3rem;
+    border-radius: 0.7rem;
+    background: var(--bs-primary-light);
+    color: var(--bs-primary);
+    font-size: 0.95rem;
+    font-weight: 800;
+}
+.postal-list-names { display: flex; flex-direction: column; gap: 0.1rem; min-width: 0; }
+.postal-list-name {
+    font-size: 0.92rem;
+    font-weight: 600;
+    color: var(--bs-gray-900);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.postal-list-place {
+    display: block;
+    font-size: 0.8rem;
+    color: var(--bs-gray-700);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.postal-list-place i { margin-inline-end: 0.25rem; vertical-align: -0.1em; }
+.postal-list-place i [class^="path"]::before { color: currentColor; }
+.postal-list-status {
+    padding: 0.6rem 0.7rem 0.55rem;
+    border: 1px solid var(--bs-gray-200);
+    border-radius: var(--dolphin-radius-control);
+    background: var(--bs-gray-100);
+}
+[data-bs-theme=dark] .postal-list-status { border-color: var(--bs-border-color); }
+.postal-card-status-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    min-height: 1.5rem;
+    margin-bottom: 0.5rem;
+}
+.postal-card-status-caption { font-size: 0.75rem; font-weight: 700; color: var(--bs-gray-600); }
+.postal-card-status-plain { font-size: 0.8rem; color: var(--bs-gray-700); }
+.postal-card-status-note { display: block; font-size: 0.8rem; color: var(--bs-gray-600); }
 
+/* The four stops on one rail (2.40.26, redrawn 2.40.56) — «۴ تا ایکون پست
+   سرهم به هم متصل» is now literally one continuous line, filled as far as the
+   stage the parcel has actually reached (`--postal-progress`, set from the
+   server's own stepper) and carrying each stop's name underneath. */
+.postal-mini-stepper {
+    --postal-progress: 0%;
+    --postal-stops: 4;
+    position: relative;
+    display: grid;
+    grid-template-columns: repeat(var(--postal-stops), minmax(0, 1fr));
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+.postal-mini-rail {
+    position: absolute;
+    z-index: 0;
+    top: 1.05rem;
+    inset-inline: calc(50% / var(--postal-stops));
+    height: 3px;
+    border-radius: 3px;
+    background: var(--bs-gray-200);
+    overflow: hidden;
+}
+.postal-mini-rail-fill {
+    display: block;
+    width: var(--postal-progress);
+    height: 100%;
+    border-radius: inherit;
+    background: linear-gradient(to left, var(--bs-success), var(--bs-primary));
+    transition: width var(--dolphin-dur) var(--dolphin-ease);
+}
+.postal-mini-step {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-width: 0;
+}
+.postal-mini-mark {
+    display: inline-grid;
+    place-items: center;
+    width: 2.1rem;
+    height: 2.1rem;
+    border: 3px solid var(--bs-body-bg);
+    border-radius: 0.65rem;
+    background: var(--bs-gray-200);
+    color: var(--bs-gray-600);
+    box-shadow: 0 0 0 1px var(--bs-gray-300);
+    transition: background-color var(--dolphin-dur) var(--dolphin-ease), color var(--dolphin-dur) var(--dolphin-ease), box-shadow var(--dolphin-dur) var(--dolphin-ease), transform var(--dolphin-dur) var(--dolphin-ease);
+}
+.postal-mini-mark i [class^="path"]::before { color: currentColor; }
+.postal-mini-label {
+    width: 100%;
+    margin-top: 0.3rem;
+    text-align: center;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--bs-gray-600);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.postal-mini-step-done .postal-mini-mark { background: var(--bs-success-light); color: var(--bs-success); box-shadow: 0 0 0 1px color-mix(in srgb, var(--bs-success) 35%, transparent); }
+.postal-mini-step-done .postal-mini-label { color: var(--bs-success); }
+.postal-mini-step-current .postal-mini-mark {
+    background: var(--bs-primary);
+    color: var(--bs-primary-inverse, #fff);
+    box-shadow: 0 0 0 3px var(--bs-primary-light);
+    transform: translateY(-1px);
+}
+.postal-mini-step-current .postal-mini-label { color: var(--bs-primary); font-weight: 800; }
+.postal-list-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-top: 0.9rem;
+    padding-top: 0.9rem;
+    border-top: 1px solid var(--bs-gray-200);
+}
+
+/* --- the shipment pane ---------------------------------------------------- */
 .postal-detail-placeholder {
     display: flex;
     flex-direction: column;
@@ -674,11 +941,91 @@ tr.is-leaving > td {
     font-size: 2.25rem;
 }
 .postal-placeholder-icon i [class^="path"]::before { color: var(--bs-primary); }
-#postal-detail-body { padding: 1.5rem 1.75rem; display: flex; flex-direction: column; gap: 1.25rem; }
-.postal-pane-head { display: flex; align-items: center; flex-wrap: wrap; gap: 0.9rem; }
+#postal-detail-body { padding: 1.5rem; display: flex; flex-direction: column; gap: 1rem; }
+.postal-pane-head {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    padding-bottom: 1.1rem;
+    border-bottom: 1px solid var(--bs-gray-200);
+}
+.postal-pane-icon {
+    flex: 0 0 auto;
+    display: inline-grid;
+    place-items: center;
+    width: 3rem;
+    height: 3rem;
+    border-radius: 0.9rem;
+    background: var(--bs-primary-light);
+    color: var(--bs-primary);
+}
+.postal-pane-icon i [class^="path"]::before { color: currentColor; }
+.postal-pane-titles { display: flex; flex-direction: column; min-width: 0; }
+.postal-pane-label { font-size: 0.78rem; color: var(--bs-gray-600); }
 .postal-pane-number { font-variant-numeric: tabular-nums; letter-spacing: 0.02em; }
-.postal-pane-section { padding: 1.1rem 1.25rem; border-radius: 0.9rem; background: var(--bs-gray-100); }
-.postal-pane-stepper { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.25rem; }
+.postal-pane-customer { font-size: 0.9rem; color: var(--bs-gray-700); }
+.postal-pane-tools { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-inline-start: auto; }
+.postal-pane-action { display: inline-flex; align-items: center; gap: 0.4rem; }
+.postal-pane-action i [class^="path"]::before { color: currentColor; }
+.postal-pane-section {
+    padding: 1rem 1.1rem;
+    border: 1px solid var(--bs-gray-200);
+    border-radius: var(--dolphin-radius-card);
+    background: var(--bs-gray-100);
+}
+[data-bs-theme=dark] .postal-pane-section { border-color: var(--bs-border-color); }
+.postal-pane-history { background: var(--bs-body-bg); }
+/* A status the post office reports as a problem gets a coloured edge rather
+   than a different card, so the section still reads as one of the four. */
+.postal-pane-status { position: relative; overflow: hidden; }
+.postal-pane-status-danger::before,
+.postal-pane-status-warning::before {
+    content: "";
+    position: absolute;
+    inset-block: 0;
+    inset-inline-start: 0;
+    width: 3px;
+    background: var(--bs-danger);
+}
+.postal-pane-status-warning::before { background: var(--bs-warning); }
+.postal-section-head { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.6rem; }
+.postal-section-title { display: flex; align-items: center; gap: 0.5rem; min-width: 0; }
+.postal-section-icon {
+    flex: 0 0 auto;
+    display: inline-grid;
+    place-items: center;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 0.6rem;
+    background: var(--bs-primary-light);
+    color: var(--bs-primary);
+}
+.postal-section-icon i [class^="path"]::before { color: currentColor; }
+.postal-section-link { padding: 0; font-size: 0.82rem; font-weight: 700; }
+.postal-pane-note {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 1rem;
+    padding: 0.55rem 0.7rem;
+    border-radius: var(--dolphin-radius-control-sm);
+    background: var(--bs-gray-200);
+    color: var(--bs-gray-800);
+    font-size: 0.85rem;
+}
+.postal-pane-note i [class^="path"]::before { color: currentColor; }
+.postal-pane-status-danger > .postal-pane-note { background: var(--bs-danger-light); color: var(--bs-danger); }
+.postal-pane-status-warning > .postal-pane-note { background: var(--bs-warning-light); color: var(--bs-warning); }
+.postal-pane-note.postal-pane-note-warning { background: var(--bs-warning-light); color: var(--bs-warning); }
+.postal-pane-stepper {
+    list-style: none;
+    margin: 1.4rem 0 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.25rem;
+}
 .postal-pane-step { position: relative; display: flex; flex-direction: column; align-items: center; gap: 0.45rem; text-align: center; }
 .postal-pane-step:not(:last-child)::after {
     content: "";
@@ -689,7 +1036,7 @@ tr.is-leaving > td {
     height: 2px;
     background: var(--bs-gray-300);
 }
-.postal-pane-step-done:not(:last-child)::after { background: var(--bs-primary); }
+.postal-pane-step-done:not(:last-child)::after { background: var(--bs-success); }
 .postal-pane-step-mark {
     display: inline-grid;
     place-items: center;
@@ -699,20 +1046,38 @@ tr.is-leaving > td {
     background: var(--bs-body-bg);
     border: 2px solid var(--bs-gray-300);
     color: var(--dolphin-text-secondary);
+    transition: background-color var(--dolphin-dur) var(--dolphin-ease), border-color var(--dolphin-dur) var(--dolphin-ease), color var(--dolphin-dur) var(--dolphin-ease), transform var(--dolphin-dur) var(--dolphin-ease);
 }
 .postal-pane-step-mark i [class^="path"]::before { color: currentColor; }
-.postal-pane-step-done .postal-pane-step-mark { border-color: var(--bs-primary); color: var(--bs-primary); }
-.postal-pane-step-current .postal-pane-step-mark { border-color: var(--bs-primary); background: var(--bs-primary); color: #fff; box-shadow: 0 0 0 0.3rem rgb(27 132 255 / 20%); }
+.postal-pane-step-done .postal-pane-step-mark { border-color: var(--bs-success); background: var(--bs-success-light); color: var(--bs-success); }
+.postal-pane-step-current .postal-pane-step-mark {
+    border-color: var(--bs-primary);
+    background: var(--bs-primary);
+    color: var(--bs-primary-inverse, #fff);
+    box-shadow: 0 0 0 0.3rem var(--bs-primary-light);
+    transform: scale(1.05);
+}
 .postal-pane-step-label { font-size: 0.8rem; font-weight: 600; color: var(--bs-gray-700); }
+.postal-pane-step-done .postal-pane-step-label { color: var(--bs-success); }
 .postal-pane-step-current .postal-pane-step-label { color: var(--bs-gray-900); font-weight: 800; }
-.postal-pane-move-row { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) auto; gap: 0.6rem; }
-@media (max-width: 575.98px) { .postal-pane-move-row { grid-template-columns: minmax(0, 1fr); } }
-.postal-facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.9rem 1.5rem; }
-@media (max-width: 575.98px) { .postal-facts { grid-template-columns: minmax(0, 1fr); } }
-.postal-fact { display: flex; flex-direction: column; gap: 0.15rem; min-width: 0; }
-.postal-fact-label { font-size: 0.75rem; color: var(--bs-gray-700); }
-.postal-fact-value { font-weight: 600; color: var(--bs-gray-900); overflow-wrap: anywhere; }
-.postal-timeline { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.9rem; }
+.postal-pane-move-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(8.5rem, 1fr)); gap: 0.6rem; margin-top: 0.9rem; }
+.postal-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); gap: 0.6rem; }
+.postal-fact {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    min-width: 0;
+    padding: 0.75rem 0.85rem;
+    border: 1px solid var(--bs-gray-200);
+    border-radius: var(--dolphin-radius-control);
+    background: var(--bs-body-bg);
+}
+[data-bs-theme=dark] .postal-fact { border-color: var(--bs-border-color); }
+.postal-fact-wide { grid-column: 1 / -1; }
+.postal-fact-label { display: flex; align-items: center; gap: 0.4rem; font-size: 0.78rem; color: var(--bs-gray-600); }
+.postal-fact-label i [class^="path"]::before { color: currentColor; }
+.postal-fact-value { font-size: 0.88rem; font-weight: 600; color: var(--bs-gray-900); line-height: 1.7; overflow-wrap: anywhere; }
+.postal-timeline { list-style: none; margin: 1rem 0 0; padding: 0; display: flex; flex-direction: column; gap: 0.9rem; }
 .postal-timeline-item { position: relative; display: flex; gap: 0.85rem; }
 .postal-timeline-item:not(:last-child)::before {
     content: "";
@@ -734,9 +1099,26 @@ tr.is-leaving > td {
     color: var(--bs-primary);
 }
 .postal-timeline-dot i [class^="path"]::before { color: currentColor; }
+.postal-timeline-dot-success { background: var(--bs-success-light); color: var(--bs-success); }
+.postal-timeline-dot-warning { background: var(--bs-warning-light); color: var(--bs-warning); }
+.postal-timeline-dot-danger { background: var(--bs-danger-light); color: var(--bs-danger); }
+.postal-timeline-dot-info { background: var(--bs-info-light); color: var(--bs-info); }
 .postal-timeline-body { display: flex; flex-direction: column; gap: 0.1rem; padding-top: 0.2rem; }
 @media (max-width: 991.98px) {
     .postal-workspace .postal-detail-pane { display: none; }
     .postal-workspace.is-viewing .postal-list-pane { display: none; }
     .postal-workspace.is-viewing .postal-detail-pane { display: block; }
+}
+@media (max-width: 575.98px) {
+    #postal-detail-body { padding: 1rem; gap: 0.85rem; }
+    .postal-pane-section { padding: 0.9rem; }
+    .postal-pane-icon { display: none; }
+    .postal-section-hint { display: none; }
+    .postal-pane-move-row { grid-template-columns: minmax(0, 1fr); }
+    .postal-facts { grid-template-columns: minmax(0, 1fr); }
+    .postal-fact-wide { grid-column: auto; }
+    .postal-pane-step-mark { width: 2.2rem; height: 2.2rem; }
+    .postal-pane-step:not(:last-child)::after { top: 1.1rem; inset-inline-start: calc(50% + 1.35rem); inset-inline-end: calc(-50% + 1.35rem); }
+    .postal-pane-step-label { font-size: 0.7rem; }
+    .postal-mini-label { font-size: 0.72rem; }
 }
