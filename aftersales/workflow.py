@@ -293,6 +293,11 @@ def close(*, actor, request, final_result, reason=""):
     )
     log_activity(actor=actor, operation="after_sales.closed", instance=case,
                  changes={"final_result": final_result, "reason_provided": bool(reason)})
+    # The satisfaction survey (2.40.61), once the closing is committed: a text
+    # that fails never undoes it.
+    from aftersales.alerts import send_survey
+
+    transaction.on_commit(lambda: send_survey(case.pk))
     return case
 
 

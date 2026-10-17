@@ -554,6 +554,10 @@ FROM (
         ('aftersales_slapolicy', 'SELECT, INSERT, UPDATE, DELETE'),
         ('aftersales_workingcalendar', 'SELECT, INSERT, UPDATE'),
         ('aftersales_holiday', 'SELECT, INSERT, DELETE'),
+        -- Deadline warnings and the survey (2.40.61): one settings row, and one
+        -- warning per case, deadline and level (its text count is updated once).
+        ('aftersales_aftersalessettings', 'SELECT, INSERT, UPDATE'),
+        ('aftersales_slaalert', 'SELECT, INSERT, UPDATE'),
         ('auditlog_activitylog', 'SELECT, INSERT'),
         -- Billing. A commercial document header is updated (status, totals);
         -- its line table also carries DELETE because removing a line from a

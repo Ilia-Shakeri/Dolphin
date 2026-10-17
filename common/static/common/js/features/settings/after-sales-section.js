@@ -304,5 +304,29 @@ export function setupAfterSalesSection() {
     document.getElementById("case-stage-add").addEventListener("click", () => openStage());
     [typeDialog, stageDialog].forEach((dialog) => dialog.querySelectorAll("[data-close-dialog]").forEach((node) => node.addEventListener("click", () => dialog.close())));
 
+    // Deadline texts, escalation and the survey (2.40.61).
+    const alertsForm = document.getElementById("case-alerts-form");
+    function renderAlerts(value) {
+        document.getElementById("case-alerts-sms").checked = value.sms_alerts;
+        document.getElementById("case-alerts-escalate").checked = value.escalate_overdue;
+        document.getElementById("case-alerts-survey").checked = value.survey_sms;
+        document.getElementById("case-alerts-survey-text").value = value.survey_text;
+        document.getElementById("case-alerts-tokens").textContent = `واژه‌های جایگزین: ${value.survey_tokens.join("، ")}`;
+        document.getElementById("case-alerts-no-sms").hidden = value.sms_available;
+    }
+    alertsForm.addEventListener("submit", (event) => {
+        event.preventDefault();
+        withSubmit(alertsForm, async () => {
+            renderAlerts(await apiRequest(`${BASE}alerts/`, {method: "PATCH", body: {
+                sms_alerts: document.getElementById("case-alerts-sms").checked,
+                escalate_overdue: document.getElementById("case-alerts-escalate").checked,
+                survey_sms: document.getElementById("case-alerts-survey").checked,
+                survey_text: document.getElementById("case-alerts-survey-text").value,
+            }}));
+            globalMessage("تنظیم هشدار و نظرسنجی ذخیره شد.", true);
+        });
+    });
+
     apiRequest(BASE).then(render).catch(showError);
+    apiRequest(`${BASE}alerts/`).then(renderAlerts).catch(showError);
 }

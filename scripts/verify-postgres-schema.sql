@@ -17,9 +17,11 @@ SELECT (
     AND to_regclass('public.accounts_usercapabilityoverride') IS NOT NULL
     AND to_regclass('public.aftersales_aftersaleshistory') IS NOT NULL
     AND to_regclass('public.aftersales_aftersalesrequest') IS NOT NULL
+    AND to_regclass('public.aftersales_aftersalessettings') IS NOT NULL
     AND to_regclass('public.aftersales_casestage') IS NOT NULL
     AND to_regclass('public.aftersales_casetype') IS NOT NULL
     AND to_regclass('public.aftersales_holiday') IS NOT NULL
+    AND to_regclass('public.aftersales_slaalert') IS NOT NULL
     AND to_regclass('public.aftersales_slapolicy') IS NOT NULL
     AND to_regclass('public.aftersales_workingcalendar') IS NOT NULL
     AND to_regclass('public.attachments_attachment') IS NOT NULL
@@ -110,7 +112,7 @@ SELECT (
     AND to_regclass('public.telephony_originaterequest') IS NOT NULL
     AND to_regclass('public.timeline_personnote') IS NOT NULL
     AND to_regclass('public.timeline_timelineentry') IS NOT NULL
-    -- Every migration this release ships (132), recorded.
+    -- Every migration this release ships (133), recorded.
     AND NOT EXISTS (
         SELECT 1
         FROM (
@@ -133,6 +135,7 @@ SELECT (
                 ('aftersales', '0002_remove_aftersaleshistory_after_sales_history_event_valid_and_more'),
                 ('aftersales', '0003_case_workflow'),
                 ('aftersales', '0004_seed_case_workflow'),
+                ('aftersales', '0005_sla_alerts'),
                 ('attachments', '0001_initial'),
                 ('auditlog', '0001_initial'),
                 ('auditlog', '0002_activitylog_role_snapshots'),
@@ -255,7 +258,7 @@ SELECT (
               AND django_migrations.name = required_migration.name
         )
     )
-    -- Every named check and unique constraint (299).
+    -- Every named check and unique constraint (304).
     AND NOT EXISTS (
         SELECT 1
         FROM (
@@ -277,6 +280,8 @@ SELECT (
                 ('aftersales_aftersalesrequest', 'after_sales_stage_key_shape'),
                 ('aftersales_aftersalesrequest', 'after_sales_status_nonblank'),
                 ('aftersales_aftersalesrequest', 'after_sales_subject_nonblank'),
+                ('aftersales_aftersalessettings', 'after_sales_settings_singleton'),
+                ('aftersales_aftersalessettings', 'after_sales_survey_text_nonblank'),
                 ('aftersales_casestage', 'case_stage_closed_stays_on'),
                 ('aftersales_casestage', 'case_stage_key_shape'),
                 ('aftersales_casestage', 'case_stage_kind_valid'),
@@ -286,6 +291,9 @@ SELECT (
                 ('aftersales_casetype', 'case_type_label_nonblank'),
                 ('aftersales_casetype', 'case_type_priority_valid'),
                 ('aftersales_holiday', 'holiday_title_nonblank'),
+                ('aftersales_slaalert', 'sla_alert_kind_valid'),
+                ('aftersales_slaalert', 'sla_alert_level_valid'),
+                ('aftersales_slaalert', 'uniq_sla_alert'),
                 ('aftersales_slapolicy', 'sla_priority_valid'),
                 ('aftersales_slapolicy', 'sla_units_valid'),
                 ('aftersales_slapolicy', 'uniq_sla_priority_type'),

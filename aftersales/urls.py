@@ -3,6 +3,7 @@ from rest_framework.routers import DefaultRouter
 
 from aftersales.settings_views import (
     AfterSalesSettingsView,
+    AlertsView,
     CalendarView,
     CaseStageDetailView,
     CaseStageListView,
@@ -34,5 +35,6 @@ urlpatterns = [
     path("after-sales-settings/holidays/", HolidayListView.as_view(), name="after-sales-holidays"),
     path("after-sales-settings/holidays/<int:pk>/", HolidayDetailView.as_view(), name="after-sales-holiday"),
     path("after-sales-settings/holidays/fixed/", FixedHolidaysView.as_view(), name="after-sales-holidays-fixed"),
+    path("after-sales-settings/alerts/", AlertsView.as_view(), name="after-sales-alerts"),
     *router.urls,
 ]

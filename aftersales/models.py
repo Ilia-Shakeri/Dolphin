@@ -126,6 +126,36 @@ class Holiday(models.Model):
         constraints = [models.CheckConstraint(condition=Q(title__regex=r"\S"), name="holiday_title_nonblank")]
 
 
+DEFAULT_SURVEY_TEXT = (
+    "{نام} گرامی، پروندهٔ {پرونده} بسته شد. لطفاً رضایت خود را با پاسخ یک عدد از ۱ (کم) تا ۵ (زیاد) "
+    "به همین پیامک اعلام کنید."
+)
+
+
+class AfterSalesSettings(models.Model):
+    """What happens around a deadline and after a case closes, one row (2.40.61, BIZ-008).
+
+    Panel warnings are always on. `sms_alerts` also texts the assignee (and
+    the managers, once a deadline has passed); `escalate_overdue` hands an
+    overdue case to the managers; `survey_sms` asks the customer for a
+    satisfaction score when a case closes, in `survey_text`. Every text needs
+    the outbound SMS feature and a configured provider.
+    """
+
+    sms_alerts = models.BooleanField(default=False)
+    escalate_overdue = models.BooleanField(default=False)
+    survey_sms = models.BooleanField(default=False)
+    survey_text = models.CharField(max_length=500, default=DEFAULT_SURVEY_TEXT)
+    updated_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name="+")
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.CheckConstraint(condition=Q(pk=1), name="after_sales_settings_singleton"),
+            models.CheckConstraint(condition=Q(survey_text__regex=r"\S"), name="after_sales_survey_text_nonblank"),
+        ]
+
+
 class AfterSalesRequest(TimeStampedModel):
     customer = models.ForeignKey(Customer, on_delete=models.PROTECT, related_name="after_sales_requests")
     sale = models.ForeignKey(Sale, null=True, blank=True, on_delete=models.PROTECT, related_name="after_sales_requests")
@@ -160,6 +190,9 @@ class AfterSalesRequest(TimeStampedModel):
     resolution_due = models.DateTimeField(null=True, blank=True, db_index=True)
     responded_at = models.DateTimeField(null=True, blank=True)
     planned_at = models.DateTimeField(null=True, blank=True)
+    #: Handed to the managers when a deadline passed unmet (2.40.61, when the
+    #: company turns `AfterSalesSettings.escalate_overdue` on).
+    escalated_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         ordering = ["-created_at", "-id"]
@@ -190,10 +223,14 @@ class AfterSalesHistory(models.Model):
         PRIORITY_CHANGED = "priority_changed", "Priority changed"
         TYPE_CHANGED = "type_changed", "Type changed"
         PLANNED = "planned", "Plan recorded"
+        # 2.40.61
+        ESCALATED = "escalated", "Escalated"
+        SURVEY_SENT = "survey_sent", "Survey sent"
 
     request = models.ForeignKey(AfterSalesRequest, on_delete=models.PROTECT, related_name="history")
     event = models.CharField(max_length=32, choices=Event.choices)
-    actor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="after_sales_changes")
+    #: Empty for what the system did on its own: an escalation, a survey (2.40.61).
+    actor = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name="after_sales_changes")
     from_status = models.CharField(max_length=80, blank=True)
     to_status = models.CharField(max_length=80, blank=True)
     from_user = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name="after_sales_assignments_lost")
@@ -210,9 +247,41 @@ class AfterSalesHistory(models.Model):
             models.CheckConstraint(
                 condition=models.Q(event__in=[
                     "created", "assigned", "status_changed", "closed", "appointment_scheduled",
-                    "reopened", "priority_changed", "type_changed", "planned",
+                    "reopened", "priority_changed", "type_changed", "planned", "escalated", "survey_sent",
                 ]),
                 name="after_sales_history_event_valid",
             ),
         ]
         indexes = [models.Index(fields=["request", "-created_at"])]
+
+
+class SlaAlert(models.Model):
+    """One warning about one deadline, sent once (2.40.61).
+
+    `approaching` is written when four fifths of the time is gone, `breached`
+    when the deadline passes unmet. What it set off — a text, an escalation —
+    happened once, because the row exists only once."""
+
+    class Kind(models.TextChoices):
+        RESPONSE = "response", "پاسخ اولیه"
+        PLAN = "plan", "برنامهٔ رسیدگی"
+        RESOLUTION = "resolution", "حل پرونده"
+
+    class Level(models.TextChoices):
+        APPROACHING = "approaching", "نزدیک مهلت"
+        BREACHED = "breached", "گذشته از مهلت"
+
+    request = models.ForeignKey(AfterSalesRequest, on_delete=models.PROTECT, related_name="sla_alerts")
+    kind = models.CharField(max_length=12, choices=Kind.choices)
+    level = models.CharField(max_length=12, choices=Level.choices)
+    due_at = models.DateTimeField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    sms_sent = models.PositiveSmallIntegerField(default=0)
+
+    class Meta:
+        ordering = ["-created_at", "-id"]
+        constraints = [
+            models.UniqueConstraint(fields=["request", "kind", "level", "due_at"], name="uniq_sla_alert"),
+            models.CheckConstraint(condition=Q(kind__in=["response", "plan", "resolution"]), name="sla_alert_kind_valid"),
+            models.CheckConstraint(condition=Q(level__in=["approaching", "breached"]), name="sla_alert_level_valid"),
+        ]

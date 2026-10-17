@@ -879,6 +879,15 @@ updated_at
   `stage_label`, `priority_label`, `final_result_label` and `overdue`. `after-sales-settings/` (+
   `types/`, `stages/`, `sla/`, `calendar/`, `holidays/`, `holidays/fixed/`).
 
+**Deadline warnings, escalation and survey (2.40.61, BIZ-008; `aftersales.alerts`).** The topbar bell
+shows an assignee their open cases with an unmet deadline four fifths gone or past, and a manager every
+case past one — derived live, nothing to dismiss. `check_after_sales_deadlines` (cron, every 15 minutes)
+writes one `SlaAlert` per case, deadline and level; per `AfterSalesSettings` it texts the assignee (and
+the managers once past) and, with `escalate_overdue`, stamps `escalated_at` with a system history row,
+each once. With `survey_sms`, closing a case texts the customer the company's own words ({نام}، {پرونده}،
+{موضوع}) after the commit; a failed text never undoes the closing and is in the SMS log. Every text needs
+`outbound_sms` and a provider. `after-sales-settings/alerts/` (GET/PATCH, `customization.manage`).
+
 Create, assignment, stage change, close and reopen use dedicated atomic services and append-only history. Sales Manager, Company IT, and Platform Admin manage company cases. Only an active clean Sales Agent in `after_sales` may be assigned and may view/change status on assigned cases. It gets no unrelated Customer, Lead, Interaction, Product, Sale, operational-document, or report scope.
 
 ---

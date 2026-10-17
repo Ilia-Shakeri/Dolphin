@@ -8,7 +8,7 @@ from common.serializers import RejectServerFieldsMixin
 from sales.models import Customer, Sale, SalesDocument
 
 
-DEADLINE_FIELDS = ("response_due", "plan_due", "resolution_due", "responded_at", "planned_at")
+DEADLINE_FIELDS = ("response_due", "plan_due", "resolution_due", "responded_at", "planned_at", "escalated_at")
 
 
 class AfterSalesRequestSerializer(RejectServerFieldsMixin, serializers.ModelSerializer):
@@ -38,7 +38,7 @@ class AfterSalesRequestSerializer(RejectServerFieldsMixin, serializers.ModelSeri
             "id", "customer", "customer_name", "sale", "document", "subject", "description",
             "status", "case_type", "case_type_label", "stage", "stage_label", "stage_kind", "priority", "priority_label",
             "final_result", "final_result_label", "response_due", "plan_due", "resolution_due", "responded_at",
-            "planned_at", "overdue", "assigned_to", "assigned_to_display", "created_by", "created_by_display",
+            "planned_at", "escalated_at", "overdue", "assigned_to", "assigned_to_display", "created_by", "created_by_display",
             "closed_at", "next_appointment_at", "created_at", "updated_at",
         ]
         # next_appointment_at is read-only here on purpose: it changes only
@@ -180,6 +180,6 @@ class AfterSalesHistorySerializer(serializers.ModelSerializer):
     def _display(self, user) -> str | None:
         return user and (user.get_full_name() or user.username)
 
-    def get_actor_display(self, instance) -> str | None: return self._display(instance.actor)
+    def get_actor_display(self, instance) -> str | None: return self._display(instance.actor) or "سامانه"
     def get_from_user_display(self, instance) -> str | None: return self._display(instance.from_user)
     def get_to_user_display(self, instance) -> str | None: return self._display(instance.to_user)

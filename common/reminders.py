@@ -205,6 +205,31 @@ def _appointment_reminders(user, *, now, count_only=False):
     return _group("after_sales_appointment", "قرار پس از فروش", "di-calendar-tick", "info", total, items)
 
 
+def _deadline_reminders(user, *, now, count_only=False):
+    """After-sales deadlines (2.40.61, BIZ-008): an assignee's cases near a
+    deadline or past it, a manager's every case past one
+    (`aftersales.alerts.bell_cases`)."""
+    from aftersales.alerts import KIND_LABELS, bell_cases, bell_count
+    from aftersales.models import SlaAlert
+
+    if count_only:
+        return bell_count(user, now=now)
+    found = bell_cases(user, now=now)
+    items = [
+        {
+            "id": case.pk,
+            "title": getattr(case.customer, "full_name", "") or f"پروندهٔ #{case.pk}",
+            "subtitle": f"مهلت {KIND_LABELS[kind]}: {'گذشته' if level == SlaAlert.Level.BREACHED else 'نزدیک'} — {case.subject}",
+            "due_at": due.isoformat(),
+            "due_kind": "datetime",
+            "overdue": level == SlaAlert.Level.BREACHED,
+            "url": f"/after-sales/{case.pk}/",
+        }
+        for case, kind, level, due in found[:GROUP_ITEM_LIMIT]
+    ]
+    return _group("after_sales_deadline", "مهلت پس از فروش", "di-shield-cross", "danger", len(found), items)
+
+
 def _task_reminders(user, *, now, count_only=False):
     """The reader's own open tasks that are due — overdue, or falling today.
 
@@ -316,6 +341,7 @@ SOURCES = (
     ("leads", _lead_reminders),
     ("tasks", _task_reminders),
     ("after_sales", _appointment_reminders),
+    ("after_sales", _deadline_reminders),
     ("cheques", _cheque_reminders),
     ("payments", _instalment_reminders),
 )

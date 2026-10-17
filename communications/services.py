@@ -286,9 +286,10 @@ def send_outbound_sms(*, actor, body, customer=None, lead=None, phone=""):
     return message
 
 
-def send_system_sms(*, body, customer):
+def send_system_sms(*, body, customer=None, phone=""):
     """An SMS the deployment sends on its own, with no person behind it
-    (2.40.51: instalment reminders).
+    (2.40.51: instalment reminders; 2.40.61: after-sales deadline alerts to
+    staff by `phone`, and the satisfaction survey).
 
     The same records as `send_outbound_sms`: one `OutboundSMS` row for the
     attempt — `sent_by` empty — and an audit row, which records the `system`
@@ -297,7 +298,7 @@ def send_system_sms(*, body, customer):
     is called, its outcome is recorded and returned, never raised.
     """
     cleaned_body = _clean_body(body)
-    recipient = _resolve_recipient(customer=customer, phone="")
+    recipient = _resolve_recipient(customer=customer, phone=phone)
     if not sms.provider_is_available():
         raise BusinessRuleError({"provider": "سرویس ارسال پیامک برای این استقرار تنظیم نشده است."})
     result = sms.send_via_configured_provider(to=recipient, body=cleaned_body)

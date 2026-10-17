@@ -63,6 +63,13 @@ class HolidaySerializer(RejectServerFieldsMixin, serializers.Serializer):
     title = serializers.CharField(max_length=120, allow_blank=True)
 
 
+class AlertsSerializer(RejectServerFieldsMixin, serializers.Serializer):
+    sms_alerts = serializers.BooleanField(required=False)
+    escalate_overdue = serializers.BooleanField(required=False)
+    survey_sms = serializers.BooleanField(required=False)
+    survey_text = serializers.CharField(required=False, allow_blank=True, max_length=600)
+
+
 class FixedHolidaysSerializer(RejectServerFieldsMixin, serializers.Serializer):
     jalali_year = serializers.IntegerField()
 
@@ -201,6 +208,24 @@ class HolidayDetailView(SettingsAccessMixin, APIView):
     def delete(self, request, pk):
         workflow.remove_holiday(actor=request.user, holiday=self._one(Holiday, pk))
         return Response(workflow.settings_payload())
+
+
+class AlertsView(SettingsAccessMixin, APIView):
+    """Deadline texts, escalation and the satisfaction survey (2.40.61)."""
+
+    @extend_schema(responses={200: dict, 403: ACCESS_DENIED_RESPONSE})
+    def get(self, request):
+        from aftersales.alerts import serialize_settings
+
+        return Response(serialize_settings())
+
+    @extend_schema(request=AlertsSerializer, responses={200: dict, 400: VALIDATION_ERROR_RESPONSE})
+    def patch(self, request):
+        from aftersales.alerts import update_settings
+
+        body = AlertsSerializer(data=request.data)
+        body.is_valid(raise_exception=True)
+        return Response(update_settings(actor=request.user, **body.validated_data))
 
 
 class FixedHolidaysView(SettingsAccessMixin, APIView):

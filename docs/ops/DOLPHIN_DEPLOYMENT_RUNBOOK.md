@@ -1373,6 +1373,15 @@ is never charged; without the feature or a fee value the run does nothing:
 15 1 * * * cd /srv/dolphin/client-1 && docker compose --env-file secrets/.env --profile maintenance run --rm scheduled-sms python manage.py post_installment_late_fees >> /var/log/dolphin-installment-late-fees.log 2>&1
 ```
 
+Where the manifest enables `after_sales` (2.40.61), act on the after-sales deadlines every 15
+minutes. Panel warnings need no run; this writes each deadline warning once and, as the company
+set in Settings → پس از فروش, texts the assignee and the managers and hands an overdue case to
+the managers — once each. Without the feature the run does nothing:
+
+```
+*/15 * * * * cd /srv/dolphin/client-1 && docker compose --env-file secrets/.env --profile maintenance run --rm scheduled-sms python manage.py check_after_sales_deadlines >> /var/log/dolphin-after-sales-deadlines.log 2>&1
+```
+
 Where the manifest enables `integrations` (2.21.0), trim the integrations log
 once a week (rows, processed events and settled deliveries older than 90 days):
 

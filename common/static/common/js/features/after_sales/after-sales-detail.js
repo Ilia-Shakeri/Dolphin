@@ -42,6 +42,7 @@ function fillAfterSales(item) {
     const badges = [caseBadge(item.case_type_label || "بدون نوع", "info"), caseBadge(`اولویت ${item.priority_label}`, PRIORITY_TONES[item.priority] || "secondary")];
     if (item.closed_at) badges.push(caseBadge(`بسته‌شده ${displayDate(item.closed_at)}${item.final_result_label ? ` — ${item.final_result_label}` : ""}`, "success"));
     if (item.overdue?.length) badges.push(caseBadge("گذشته از مهلت", "danger"));
+    if (item.escalated_at && !item.closed_at) badges.push(caseBadge(`ارجاع به مدیر ${displayDate(item.escalated_at)}`, "warning"));
     document.getElementById("after-sales-badges").replaceChildren(...badges);
     const closed = Boolean(item.closed_at);
     const rows = [deadlineRow("پاسخ اولیه", item.response_due, item.responded_at, closed)];
@@ -60,6 +61,7 @@ function fillAfterSales(item) {
 const EVENT_LABELS = {
     created: "ایجاد", assigned: "تخصیص", status_changed: "تغییر وضعیت", closed: "بستن", appointment_scheduled: "زمان‌بندی قرار",
     reopened: "بازگشایی", priority_changed: "تغییر اولویت", type_changed: "تغییر نوع", planned: "برنامهٔ رسیدگی",
+    escalated: "ارجاع به مدیر", survey_sent: "پیامک نظرسنجی",
 };
 
 async function loadAfterSalesHistory(id) {

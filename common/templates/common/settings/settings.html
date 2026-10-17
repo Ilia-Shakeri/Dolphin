@@ -598,6 +598,26 @@
     <div class="card-body pt-2"><div class="table-responsive"><table class="table align-middle table-row-dashed fs-6 gy-3 mb-0"><thead><tr class="text-start text-gray-700 fw-bold fs-7 gs-0"><th>اولویت</th><th>پاسخ اولیه</th><th>برنامهٔ رسیدگی</th><th>حل پرونده</th><th><span class="visually-hidden">عملیات</span></th></tr></thead><tbody id="case-sla-body"></tbody></table></div></div>
 </section>
 <section class="card mb-5 mb-xl-8">
+    {% comment %} Deadline texts, escalation and the satisfaction survey (2.40.61;
+       `aftersales.alerts`). Panel warnings are always on. {% endcomment %}
+    <div class="card-header border-0 pt-6"><div class="card-title flex-column"><h2>هشدار مهلت و نظرسنجی</h2><span class="text-muted fs-7 mt-1">هشدار داخل پنل همیشه روشن است: مسئول، پرونده‌های نزدیک یا گذشته از مهلت را می‌بیند و مدیر، پرونده‌های گذشته از مهلت را.</span></div></div>
+    <div class="card-body pt-2">
+        <div class="notice d-flex align-items-center gap-3 bg-light-warning rounded border-warning border border-dashed p-4 mb-6" id="case-alerts-no-sms" hidden>
+            <i class="di-duotone di-information-5 fs-2x text-warning flex-shrink-0" aria-hidden="true"><span class="path1"></span><span class="path2"></span><span class="path3"></span></i>
+            <span class="text-gray-800">سرویس ارسال پیامک برای این استقرار روشن یا تنظیم نشده است؛ تا تنظیم نشود، پیامکی فرستاده نمی‌شود.</span>
+        </div>
+        <form id="case-alerts-form" novalidate>
+            <div class="d-grid gap-4">
+                <div class="form-check form-check-custom form-check-solid form-switch"><input class="form-check-input" type="checkbox" id="case-alerts-sms" name="sms_alerts"><label class="form-check-label" for="case-alerts-sms">پیامک به مسئول نزدیک و پس از مهلت، و به مدیران پس از مهلت</label></div>
+                <div class="form-check form-check-custom form-check-solid form-switch"><input class="form-check-input" type="checkbox" id="case-alerts-escalate" name="escalate_overdue"><label class="form-check-label" for="case-alerts-escalate">ارجاع خودکار پروندهٔ گذشته از مهلت به مدیر</label></div>
+                <div class="form-check form-check-custom form-check-solid form-switch"><input class="form-check-input" type="checkbox" id="case-alerts-survey" name="survey_sms"><label class="form-check-label" for="case-alerts-survey">پیامک نظرسنجی رضایت پس از بستن پرونده</label></div>
+                <div><label class="form-label fw-semibold" for="case-alerts-survey-text">متن نظرسنجی</label><textarea class="form-control form-control-solid" id="case-alerts-survey-text" name="survey_text" rows="3" maxlength="500"></textarea><p class="text-muted fs-8 mt-1 mb-0" id="case-alerts-tokens"></p><p class="text-danger fs-8 mt-1 mb-0" data-error-for="survey_text"></p></div>
+            </div>
+            <div class="d-flex justify-content-end mt-5"><button class="btn btn-primary" type="submit">ذخیره</button></div>
+        </form>
+    </div>
+</section>
+<section class="card mb-5 mb-xl-8">
     <div class="card-header border-0 pt-6"><div class="card-title flex-column"><h2>ساعت‌های کاری</h2><span class="text-muted fs-7 mt-1">روزهای بسته در مهلت‌ها شمرده نمی‌شوند.</span></div></div>
     <div class="card-body pt-2">
         <form id="case-calendar-form" novalidate>

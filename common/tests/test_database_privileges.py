@@ -392,6 +392,8 @@ class DatabasePrivilegeContractTests(SimpleTestCase):
             "aftersales_slapolicy": "SELECT, INSERT, UPDATE, DELETE",
             "aftersales_workingcalendar": "SELECT, INSERT, UPDATE",
             "aftersales_holiday": "SELECT, INSERT, DELETE",
+            "aftersales_aftersalessettings": "SELECT, INSERT, UPDATE",
+            "aftersales_slaalert": "SELECT, INSERT, UPDATE",
             "auditlog_activitylog": "SELECT, INSERT",
             # Billing. Line tables carry DELETE because a draft document may
             # have a line removed; the service refuses that past draft, and the
