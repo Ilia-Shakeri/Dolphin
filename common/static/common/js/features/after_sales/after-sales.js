@@ -8,9 +8,46 @@ import {renderWizardReview, selectedOptionText, setupWizard} from "dolphin/ui/wi
 
 function afterSalesRow(item) {
     const row = document.createElement("tr");
-    [item.subject, item.customer_name || item.customer, item.status, item.assigned_to_display || "تخصیص‌نیافته", item.closed_at ? "بسته" : "باز", displayDate(item.created_at)].forEach((value) => appendCell(row, value));
+    appendCell(row, item.subject);
+    appendCell(row, item.customer_name || item.customer);
+    appendCell(row, item.case_type_label);
+    const stage = document.createElement("td");
+    stage.append(caseBadge(item.final_result_label ? `${item.stage_label} — ${item.final_result_label}` : item.stage_label, item.stage_kind === "closed" ? "success" : "primary"));
+    row.append(stage);
+    const priority = document.createElement("td");
+    priority.append(caseBadge(item.priority_label, PRIORITY_TONES[item.priority] || "secondary"));
+    row.append(priority);
+    const due = appendCell(row, item.closed_at ? "—" : displayDate(item.resolution_due));
+    if (item.overdue?.length) due.append(" ", caseBadge("گذشته از مهلت", "danger"));
+    appendCell(row, item.assigned_to_display || "تخصیص‌نیافته");
+    appendCell(row, displayDate(item.created_at));
     appendDetailLink(row, `/after-sales/${item.id}/`);
     return row;
+}
+
+/** Normal grey, urgent amber, critical red (2.40.60). */
+export const PRIORITY_TONES = {normal: "secondary", urgent: "warning", critical: "danger"};
+
+export function caseBadge(text, tone) {
+    const badge = document.createElement("span");
+    badge.className = `badge badge-light-${tone}`;
+    badge.textContent = text || "—";
+    return badge;
+}
+
+/** The case pages' types, stage lists, priorities and results. */
+export function afterSalesConfig() {
+    try {
+        return JSON.parse(document.getElementById("after-sales-config")?.textContent || "null") || {};
+    } catch (error) {
+        return {};
+    }
+}
+
+/** The stage list a case of this type moves through: its own, or the default one. */
+export function stagesFor(config, typeId) {
+    const own = (config.type_stages || {})[String(typeId)] || [];
+    return own.length ? own : (config.default_stages || []);
 }
 
 export async function setupAfterSales() {
@@ -19,7 +56,8 @@ export async function setupAfterSales() {
     const controller = setupPagedList({key: "after-sales", form, search: document.getElementById("after-sales-search"), endpoint: (page) => {
         const query = new URLSearchParams({page: String(page), ordering: document.getElementById("after-sales-ordering").value});
         const search = document.getElementById("after-sales-search").value.trim(); if (search) query.set("search", search);
-        [["status", "after-sales-status"], ["assigned_to", "after-sales-assignee"], ["is_closed", "after-sales-closed"]].forEach(([name, id]) => { const node = document.getElementById(id); const value = node?.value.trim(); if (value) query.set(name, value); });
+        [["stage", "after-sales-stage"], ["priority", "after-sales-priority"], ["case_type", "after-sales-type"], ["assigned_to", "after-sales-assignee"], ["is_closed", "after-sales-closed"]].forEach(([name, id]) => { const node = document.getElementById(id); const value = node?.value.trim(); if (value) query.set(name, value); });
+        if (document.getElementById("after-sales-overdue")?.checked) query.set("overdue", "true");
         return `/api/v1/after-sales/?${query}`;
     }, renderRow: afterSalesRow});
     controller.load();
@@ -30,6 +68,20 @@ export async function setupAfterSales() {
     const documentSelect = document.getElementById("create-after-sales-document");
     const assigneeSelect = document.getElementById("create-after-sales-assigned");
     let sales = [], documents = [];
+    // Type, priority and the starting stage (2.40.60): the type's own stage
+    // list when it has one, and its default priority.
+    const config = afterSalesConfig();
+    const typeSelect = document.getElementById("create-after-sales-type");
+    const prioritySelect = document.getElementById("create-after-sales-priority");
+    const stageSelect = document.getElementById("create-after-sales-stage");
+    function syncType() {
+        stageSelect.replaceChildren(...stagesFor(config, typeSelect.value)
+            .filter((stage) => stage.kind === "open" && stage.is_active)
+            .map((stage) => new Option(stage.label, stage.key)));
+        const priority = typeSelect.selectedOptions[0]?.dataset.priority;
+        if (priority) prioritySelect.value = priority;
+    }
+    typeSelect.addEventListener("change", syncType);
     function renderAfterSalesReview() {
         renderWizardReview(document.getElementById("create-after-sales-review"), [
             ["مشتری", selectedOptionText(customerSelect)],
@@ -40,7 +92,9 @@ export async function setupAfterSales() {
             // uses: an optional field left empty should read as an em dash
             // rather than as a label with nothing beside it.
             ["موضوع", document.getElementById("create-after-sales-subject").value || "—"],
-            ["وضعیت آغازین", document.getElementById("create-after-sales-status").value || "—"],
+            ["نوع پرونده", selectedOptionText(typeSelect)],
+            ["اولویت", selectedOptionText(prioritySelect)],
+            ["مرحلهٔ شروع", selectedOptionText(stageSelect)],
             ["شرح", document.getElementById("create-after-sales-description").value || "—"],
         ]);
     }
@@ -51,6 +105,7 @@ export async function setupAfterSales() {
     document.getElementById("open-create-after-sales").addEventListener("click", () => {
         document.getElementById("create-after-sales-form").reset();
         clearMessages(document.getElementById("create-after-sales-form"));
+        syncType();
         afterSalesWizard?.goFirst();
         dialog.showModal();
     });
@@ -71,7 +126,7 @@ export async function setupAfterSales() {
     }
     const createForm = document.getElementById("create-after-sales-form");
     createForm.addEventListener("submit", (event) => { event.preventDefault(); withSubmit(createForm, async () => {
-        const payload = formPayload(createForm, ["customer", "sale", "document", "assigned_to", "subject", "description", "status"]);
+        const payload = formPayload(createForm, ["customer", "sale", "document", "assigned_to", "subject", "description", "case_type", "priority", "stage"]);
         ["sale", "document", "assigned_to"].forEach((name) => { if (!payload[name]) delete payload[name]; });
         const item = await apiRequest(createForm.action, {method: "POST", body: payload}); window.location.assign(`/after-sales/${item.id}/`);
     }); });

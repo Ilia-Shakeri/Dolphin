@@ -850,7 +850,36 @@ created_at
 updated_at
 ```
 
-No exact status vocabulary or transition graph was supplied. Status therefore remains required bounded single-line text. Create, assignment, status change, and close use dedicated atomic services and append-only history. Close is final until reopen semantics are approved. Sales Manager, Company IT, and Platform Admin manage company cases. Only an active clean Sales Agent in `after_sales` may be assigned and may view/change status on assigned cases. It gets no unrelated Customer, Lead, Interaction, Product, Sale, operational-document, or report scope.
+**Stages, types, priorities and deadlines (2.40.60, product-owner decision BIZ-008, 2026-10-17;
+`aftersales.workflow`).** The free-text status gave way to:
+
+- `CaseStage` lists: the seven default stages («ثبت‌شده، در حال بررسی، منتظر مشتری یا اطلاعات تکمیلی،
+  منتظر قطعه یا تأمین‌کننده، در حال انجام، آماده تحویل یا اعلام نتیجه، بسته‌شده») serve every type
+  without its own list; a type may copy them into its own and extend it. One closed stage, last and on.
+  `AfterSalesRequest.stage` holds the key; `status` mirrors the stage's name (older cases keep theirs).
+- `CaseType`: seven seeded (شکایت، تعمیر، گارانتی، پرسش، مرجوعی، پیگیری ارسال، سایر), each with a default
+  priority; turned off, never deleted.
+- `priority` normal / urgent / critical; `SlaPolicy` per priority (the company's) with an optional
+  per-type rule: first response, handling plan (critical only), resolution — each an amount in hours
+  or working days, empty for none. Defaults: normal 1 day / 5 days; urgent 4 hours / 2 days; critical
+  1 hour, plan 4 hours, resolution by type. `response_due`, `plan_due`, `resolution_due` are written
+  at creation and on a priority change, counted from creation in working time (`aftersales.sla`:
+  `WorkingCalendar` hours per weekday, default Saturday–Wednesday 08:00–16:00 and Thursday 08:00–13:00;
+  `Holiday` days skipped when `skip_holidays`). The first move, booking or plan stamps `responded_at`;
+  `record_plan` stamps `planned_at`.
+- Closing needs `final_result` (resolved / unresolved / agreed); reopening needs a reason and goes back
+  to an open stage; both are history events (`reopened`, `priority_changed`, `planned` were added).
+- Migration 0004 put older cases on the nearest stage by their words («در حال بررسی» when none fits),
+  closed ones on «بسته‌شده» with no final result, priority normal, no type, no deadlines.
+- Settings → «پس از فروش» (`after_sales` and `customization.manage`): types, stage lists, deadlines,
+  the working week and holidays (fixed solar holidays a year at a time; lunar ones entered by hand).
+- API: `after-sales/` create takes `case_type`, `priority`, `stage` (`status` only as words to find a
+  stage); `transition-status/` takes a stage key or name; `close/` needs `final_result`; `reopen/`,
+  `priority/`, `plan/`; list filters `stage`, `priority`, `case_type`, `overdue=true`. Each case carries
+  `stage_label`, `priority_label`, `final_result_label` and `overdue`. `after-sales-settings/` (+
+  `types/`, `stages/`, `sla/`, `calendar/`, `holidays/`, `holidays/fixed/`).
+
+Create, assignment, stage change, close and reopen use dedicated atomic services and append-only history. Sales Manager, Company IT, and Platform Admin manage company cases. Only an active clean Sales Agent in `after_sales` may be assigned and may view/change status on assigned cases. It gets no unrelated Customer, Lead, Interaction, Product, Sale, operational-document, or report scope.
 
 ---
 

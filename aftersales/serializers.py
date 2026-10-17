@@ -2,24 +2,43 @@ from rest_framework import serializers
 
 from accounts.access import crm_identities
 from accounts.models import User
-from aftersales.models import AfterSalesHistory, AfterSalesRequest
+from aftersales.models import AfterSalesHistory, AfterSalesRequest, CaseType
 from aftersales.services import create_after_sales_request
 from common.serializers import RejectServerFieldsMixin
 from sales.models import Customer, Sale, SalesDocument
 
 
+DEADLINE_FIELDS = ("response_due", "plan_due", "resolution_due", "responded_at", "planned_at")
+
+
 class AfterSalesRequestSerializer(RejectServerFieldsMixin, serializers.ModelSerializer):
-    server_fields = {"customer_name", "assigned_to_display", "created_by", "created_by_display", "closed_at", "next_appointment_at", "created_at", "updated_at"}
+    server_fields = {"customer_name", "assigned_to_display", "created_by", "created_by_display", "closed_at", "next_appointment_at", "created_at", "updated_at", "final_result", *DEADLINE_FIELDS}
     customer_name = serializers.CharField(source="customer.full_name", read_only=True)
     assigned_to_display = serializers.SerializerMethodField()
     created_by = serializers.PrimaryKeyRelatedField(read_only=True)
     created_by_display = serializers.SerializerMethodField()
+    #: 2.40.60 (BIZ-008): a type, a priority and a starting stage on create;
+    #: after that each moves through its own action, which keeps the history.
+    #: `status` is the stage's name; the free words of before are optional.
+    status = serializers.CharField(max_length=80, required=False, allow_blank=True)
+    case_type = serializers.PrimaryKeyRelatedField(queryset=CaseType.objects.filter(is_active=True), required=False, allow_null=True)
+    case_type_label = serializers.SerializerMethodField()
+    stage = serializers.CharField(max_length=40, required=False, allow_blank=True)
+    stage_label = serializers.SerializerMethodField()
+    stage_kind = serializers.SerializerMethodField()
+    priority = serializers.ChoiceField(choices=["normal", "urgent", "critical"], required=False)
+    priority_label = serializers.SerializerMethodField()
+    final_result_label = serializers.SerializerMethodField()
+    #: Which deadline has passed unmet, for the badge beside it.
+    overdue = serializers.SerializerMethodField()
 
     class Meta:
         model = AfterSalesRequest
         fields = [
             "id", "customer", "customer_name", "sale", "document", "subject", "description",
-            "status", "assigned_to", "assigned_to_display", "created_by", "created_by_display",
+            "status", "case_type", "case_type_label", "stage", "stage_label", "stage_kind", "priority", "priority_label",
+            "final_result", "final_result_label", "response_due", "plan_due", "resolution_due", "responded_at",
+            "planned_at", "overdue", "assigned_to", "assigned_to_display", "created_by", "created_by_display",
             "closed_at", "next_appointment_at", "created_at", "updated_at",
         ]
         # next_appointment_at is read-only here on purpose: it changes only
@@ -27,7 +46,52 @@ class AfterSalesRequestSerializer(RejectServerFieldsMixin, serializers.ModelSeri
         # action below), never through a plain create/update, so its own
         # permission rule (elevated, or the assigned technician) cannot be
         # bypassed by writing the field directly on this serializer.
-        read_only_fields = ["id", "customer_name", "assigned_to_display", "created_by", "created_by_display", "closed_at", "next_appointment_at", "created_at", "updated_at"]
+        read_only_fields = ["id", "customer_name", "assigned_to_display", "created_by", "created_by_display", "closed_at", "next_appointment_at", "created_at", "updated_at", "final_result", *DEADLINE_FIELDS]
+
+    def _stage(self, instance):
+        cache = self.context.setdefault("_case_stages", {})
+        key = instance.case_type_id
+        if key not in cache:
+            from aftersales.workflow import stages_for
+
+            cache[key] = {stage.key: stage for stage in stages_for(instance.case_type)}
+        return cache[key].get(instance.stage)
+
+    def get_case_type_label(self, instance) -> str:
+        return instance.case_type.label if instance.case_type_id else ""
+
+    def get_stage_label(self, instance) -> str:
+        stage = self._stage(instance)
+        return stage.label if stage else instance.status
+
+    def get_stage_kind(self, instance) -> str:
+        stage = self._stage(instance)
+        return stage.kind if stage else ("closed" if instance.closed_at else "open")
+
+    def get_priority_label(self, instance) -> str:
+        from aftersales.workflow import PRIORITY_LABELS
+
+        return PRIORITY_LABELS.get(instance.priority, instance.priority)
+
+    def get_final_result_label(self, instance) -> str:
+        from aftersales.workflow import RESULT_LABELS
+
+        return RESULT_LABELS.get(instance.final_result, "")
+
+    def get_overdue(self, instance) -> list[str]:
+        from django.utils import timezone
+
+        if instance.closed_at is not None:
+            return []
+        now = timezone.now()
+        late = []
+        if instance.response_due and instance.responded_at is None and instance.response_due < now:
+            late.append("response")
+        if instance.plan_due and instance.planned_at is None and instance.plan_due < now:
+            late.append("plan")
+        if instance.resolution_due and instance.resolution_due < now:
+            late.append("resolution")
+        return late
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -78,6 +142,22 @@ class StatusTransitionSerializer(RejectServerFieldsMixin, serializers.Serializer
 
 class CloseSerializer(RejectServerFieldsMixin, serializers.Serializer):
     reason = serializers.CharField(max_length=500, required=False, allow_blank=True)
+    #: 2.40.60: «حل‌شده» (resolved), «حل‌نشده» (unresolved) or «مختومه با توافق مشتری» (agreed).
+    final_result = serializers.CharField(max_length=12, required=False, allow_blank=True)
+
+
+class ReopenSerializer(RejectServerFieldsMixin, serializers.Serializer):
+    reason = serializers.CharField(max_length=500, allow_blank=True)
+    to_stage = serializers.CharField(max_length=40, required=False, allow_blank=True)
+
+
+class PrioritySerializer(RejectServerFieldsMixin, serializers.Serializer):
+    priority = serializers.CharField(max_length=10)
+    reason = serializers.CharField(max_length=500, required=False, allow_blank=True)
+
+
+class PlanSerializer(RejectServerFieldsMixin, serializers.Serializer):
+    note = serializers.CharField(max_length=500, allow_blank=True)
 
 
 class AppointmentSerializer(RejectServerFieldsMixin, serializers.Serializer):

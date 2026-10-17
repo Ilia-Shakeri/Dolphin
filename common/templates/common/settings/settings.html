@@ -571,6 +571,84 @@
     </form>
 </dialog>
 {% endif %}
+{% if can_configure_after_sales %}
+{% comment %} After-sales types, stage lists, deadlines, working week and holidays
+   (2.40.60, BIZ-008; `aftersales.workflow`). Nothing here is deleted but a type's own
+   deadline rule and a holiday: types and stages are turned off. {% endcomment %}
+<div id="settings-pane-after-sales" role="tabpanel" aria-labelledby="settings-tab-after-sales" data-settings-pane="after-sales"{% if active_tab != "after-sales" %} hidden{% endif %}>
+<section class="card mb-5 mb-xl-8">
+    <div class="card-header border-0 pt-6 flex-wrap gap-3">
+        <div class="card-title flex-column"><h2>نوع‌های پرونده</h2><span class="text-muted fs-7 mt-1">هر نوع با اولویت پیش‌فرض خودش شروع می‌شود و می‌تواند فهرست مرحله و مهلت خودش را داشته باشد.</span></div>
+        <div class="card-toolbar"><button class="btn btn-primary" type="button" id="case-type-add">نوع تازه</button></div>
+    </div>
+    <div class="card-body pt-2"><div class="table-responsive"><table class="table align-middle table-row-dashed fs-6 gy-3 mb-0"><thead><tr class="text-start text-gray-700 fw-bold fs-7 gs-0"><th>نوع</th><th>اولویت پیش‌فرض</th><th>مرحله‌ها</th><th>وضعیت</th><th><span class="visually-hidden">عملیات</span></th></tr></thead><tbody id="case-types-body"></tbody></table></div></div>
+</section>
+<section class="card mb-5 mb-xl-8">
+    <div class="card-header border-0 pt-6 flex-wrap gap-3">
+        <div class="card-title flex-column"><h2>مرحله‌های پرونده</h2><span class="text-muted fs-7 mt-1">«بسته‌شده» همیشه آخر و روشن است؛ نتیجهٔ نهایی هنگام بستن انتخاب می‌شود.</span></div>
+        <div class="card-toolbar flex-wrap gap-2"><label class="sr-only" for="case-stage-list">فهرست</label><select class="form-select form-select-solid w-auto" id="case-stage-list"></select><button class="btn btn-primary" type="button" id="case-stage-add">مرحلهٔ تازه</button></div>
+    </div>
+    <div class="card-body pt-2"><div class="table-responsive"><table class="table align-middle table-row-dashed fs-6 gy-3 mb-0"><thead><tr class="text-start text-gray-700 fw-bold fs-7 gs-0"><th>مرحله</th><th>نوع</th><th>وضعیت</th><th><span class="visually-hidden">عملیات</span></th></tr></thead><tbody id="case-stages-body"></tbody></table></div></div>
+</section>
+<section class="card mb-5 mb-xl-8">
+    <div class="card-header border-0 pt-6 flex-wrap gap-3">
+        <div class="card-title flex-column"><h2>مهلت‌های رسیدگی</h2><span class="text-muted fs-7 mt-1">در ساعت‌ها و روزهای کاری شرکت. خالی یعنی بدون مهلت. پرونده‌های باز مهلت خود را نگه می‌دارند.</span></div>
+        <div class="card-toolbar"><label class="sr-only" for="case-sla-scope">برای</label><select class="form-select form-select-solid w-auto" id="case-sla-scope"></select></div>
+    </div>
+    <div class="card-body pt-2"><div class="table-responsive"><table class="table align-middle table-row-dashed fs-6 gy-3 mb-0"><thead><tr class="text-start text-gray-700 fw-bold fs-7 gs-0"><th>اولویت</th><th>پاسخ اولیه</th><th>برنامهٔ رسیدگی</th><th>حل پرونده</th><th><span class="visually-hidden">عملیات</span></th></tr></thead><tbody id="case-sla-body"></tbody></table></div></div>
+</section>
+<section class="card mb-5 mb-xl-8">
+    <div class="card-header border-0 pt-6"><div class="card-title flex-column"><h2>ساعت‌های کاری</h2><span class="text-muted fs-7 mt-1">روزهای بسته در مهلت‌ها شمرده نمی‌شوند.</span></div></div>
+    <div class="card-body pt-2">
+        <form id="case-calendar-form" novalidate>
+            <div class="table-responsive"><table class="table align-middle table-row-dashed fs-6 gy-3 mb-0"><thead><tr class="text-start text-gray-700 fw-bold fs-7 gs-0"><th>روز</th><th>باز</th><th>از</th><th>تا</th></tr></thead><tbody id="case-calendar-body"></tbody></table></div>
+            <div class="form-check form-check-custom form-check-solid form-switch mt-5"><input class="form-check-input" type="checkbox" id="case-calendar-skip" name="skip_holidays"><label class="form-check-label" for="case-calendar-skip">تعطیلات فهرست زیر از مهلت‌ها کم شود</label></div>
+            <p class="text-danger fs-8 mt-2 mb-0" data-error-for="hours"></p>
+            <div class="d-flex justify-content-end mt-5"><button class="btn btn-primary" type="submit">ذخیرهٔ ساعت‌ها</button></div>
+        </form>
+    </div>
+</section>
+<section class="card mb-5 mb-xl-8">
+    <div class="card-header border-0 pt-6 flex-wrap gap-3"><div class="card-title flex-column"><h2>تعطیلات</h2><span class="text-muted fs-7 mt-1">تعطیلات ثابت شمسی با یک دکمه برای هر سال افزوده می‌شوند. تعطیلات قمری را هر سال از تقویم رسمی وارد کنید؛ تاریخشان حدس زده نمی‌شود.</span></div></div>
+    <div class="card-body pt-2">
+        <form id="case-holiday-form" class="row g-4 align-items-end mb-5" novalidate>
+            <div class="col-md-4"><label class="form-label fw-semibold required" for="case-holiday-day">روز</label><input class="form-control form-control-solid" id="case-holiday-day" name="day" type="text" data-jalali="date"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="day"></p></div>
+            <div class="col-md-5"><label class="form-label fw-semibold required" for="case-holiday-title">مناسبت</label><input class="form-control form-control-solid" id="case-holiday-title" name="title" maxlength="120"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="title"></p></div>
+            <div class="col-md-3"><button class="btn btn-light-primary w-100" type="submit">افزودن روز</button></div>
+        </form>
+        <form id="case-fixed-holidays-form" class="row g-4 align-items-end mb-5" novalidate>
+            <div class="col-md-4"><label class="form-label fw-semibold" for="case-fixed-year">سال شمسی</label><input class="form-control form-control-solid" id="case-fixed-year" name="jalali_year" type="text" inputmode="numeric" data-decimal-input data-decimal-places="0" data-decimal-min="1390" data-decimal-max="1500" dir="ltr"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="jalali_year"></p></div>
+            <div class="col-md-5"><button class="btn btn-light-primary" type="submit">افزودن تعطیلات ثابت این سال</button></div>
+        </form>
+        <div id="case-holidays-empty" class="text-center text-gray-700 py-6" hidden>روزی در فهرست نیست.</div>
+        <div class="table-responsive"><table class="table align-middle table-row-dashed fs-6 gy-3 mb-0"><thead><tr class="text-start text-gray-700 fw-bold fs-7 gs-0"><th>روز</th><th>مناسبت</th><th><span class="visually-hidden">عملیات</span></th></tr></thead><tbody id="case-holidays-body"></tbody></table></div>
+    </div>
+</section>
+</div>
+<dialog id="case-type-dialog" aria-labelledby="case-type-dialog-title">
+    <div class="d-flex flex-stack align-items-center mb-5"><h2 id="case-type-dialog-title" class="mb-0">نوع پرونده</h2><button class="btn btn-icon btn-light" type="button" data-close-dialog aria-label="بستن">×</button></div>
+    <form id="case-type-form" novalidate>
+        <div class="d-grid gap-5">
+            <div><label class="form-label fw-semibold required" for="case-type-label">نام</label><input class="form-control form-control-solid" id="case-type-label" name="label" maxlength="60"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="label"></p></div>
+            <div><label class="form-label fw-semibold" for="case-type-priority">اولویت پیش‌فرض</label><select class="form-select form-select-solid" id="case-type-priority" name="default_priority"><option value="normal">عادی</option><option value="urgent">فوری</option><option value="critical">بحرانی</option></select><p class="text-danger fs-8 mt-1 mb-0" data-error-for="default_priority"></p></div>
+            <div class="form-check form-check-custom form-check-solid form-switch" id="case-type-active-wrap" hidden><input class="form-check-input" type="checkbox" id="case-type-active" name="is_active"><label class="form-check-label" for="case-type-active">روشن</label></div>
+            <p class="text-danger fs-8 mb-0" data-error-for="is_active"></p>
+        </div>
+        <div class="d-flex justify-content-end gap-3 mt-6"><button class="btn btn-primary" type="submit">ذخیره</button></div>
+    </form>
+</dialog>
+<dialog id="case-stage-dialog" aria-labelledby="case-stage-dialog-title">
+    <div class="d-flex flex-stack align-items-center mb-5"><h2 id="case-stage-dialog-title" class="mb-0">مرحلهٔ پرونده</h2><button class="btn btn-icon btn-light" type="button" data-close-dialog aria-label="بستن">×</button></div>
+    <form id="case-stage-form" novalidate>
+        <div class="d-grid gap-5">
+            <div><label class="form-label fw-semibold required" for="case-stage-label">نام</label><input class="form-control form-control-solid" id="case-stage-label" name="label" maxlength="60"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="label"></p></div>
+            <div class="form-check form-check-custom form-check-solid form-switch" id="case-stage-active-wrap" hidden><input class="form-check-input" type="checkbox" id="case-stage-active" name="is_active"><label class="form-check-label" for="case-stage-active">روشن</label></div>
+            <p class="text-danger fs-8 mb-0" data-error-for="is_active"></p><p class="text-danger fs-8 mb-0" data-error-for="case_type"></p>
+        </div>
+        <div class="d-flex justify-content-end gap-3 mt-6"><button class="btn btn-primary" type="submit">ذخیره</button></div>
+    </form>
+</dialog>
+{% endif %}
 {% comment %} This company's instalment rules (2.40.51; `billing.installment_settings`).
    Each advanced instalment capability is its own manifest feature; a card shows only
    for one this deployment runs, and the API checks the feature and the

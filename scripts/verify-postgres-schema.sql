@@ -17,6 +17,11 @@ SELECT (
     AND to_regclass('public.accounts_usercapabilityoverride') IS NOT NULL
     AND to_regclass('public.aftersales_aftersaleshistory') IS NOT NULL
     AND to_regclass('public.aftersales_aftersalesrequest') IS NOT NULL
+    AND to_regclass('public.aftersales_casestage') IS NOT NULL
+    AND to_regclass('public.aftersales_casetype') IS NOT NULL
+    AND to_regclass('public.aftersales_holiday') IS NOT NULL
+    AND to_regclass('public.aftersales_slapolicy') IS NOT NULL
+    AND to_regclass('public.aftersales_workingcalendar') IS NOT NULL
     AND to_regclass('public.attachments_attachment') IS NOT NULL
     AND to_regclass('public.auditlog_activitylog') IS NOT NULL
     AND to_regclass('public.billing_chargesettlement') IS NOT NULL
@@ -105,7 +110,7 @@ SELECT (
     AND to_regclass('public.telephony_originaterequest') IS NOT NULL
     AND to_regclass('public.timeline_personnote') IS NOT NULL
     AND to_regclass('public.timeline_timelineentry') IS NOT NULL
-    -- Every migration this release ships (130), recorded.
+    -- Every migration this release ships (132), recorded.
     AND NOT EXISTS (
         SELECT 1
         FROM (
@@ -126,6 +131,8 @@ SELECT (
                 ('admin', '0003_logentry_add_action_flag_choices'),
                 ('aftersales', '0001_after_sales_foundation'),
                 ('aftersales', '0002_remove_aftersaleshistory_after_sales_history_event_valid_and_more'),
+                ('aftersales', '0003_case_workflow'),
+                ('aftersales', '0004_seed_case_workflow'),
                 ('attachments', '0001_initial'),
                 ('auditlog', '0001_initial'),
                 ('auditlog', '0002_activitylog_role_snapshots'),
@@ -248,7 +255,7 @@ SELECT (
               AND django_migrations.name = required_migration.name
         )
     )
-    -- Every named check and unique constraint (283).
+    -- Every named check and unique constraint (299).
     AND NOT EXISTS (
         SELECT 1
         FROM (
@@ -265,8 +272,24 @@ SELECT (
                 ('accounts_usercapabilityoverride', 'accounts_capability_override_unique'),
                 ('aftersales_aftersaleshistory', 'after_sales_history_event_valid'),
                 ('aftersales_aftersalesrequest', 'after_sales_description_nonblank'),
+                ('aftersales_aftersalesrequest', 'after_sales_final_result_valid'),
+                ('aftersales_aftersalesrequest', 'after_sales_priority_valid'),
+                ('aftersales_aftersalesrequest', 'after_sales_stage_key_shape'),
                 ('aftersales_aftersalesrequest', 'after_sales_status_nonblank'),
                 ('aftersales_aftersalesrequest', 'after_sales_subject_nonblank'),
+                ('aftersales_casestage', 'case_stage_closed_stays_on'),
+                ('aftersales_casestage', 'case_stage_key_shape'),
+                ('aftersales_casestage', 'case_stage_kind_valid'),
+                ('aftersales_casestage', 'case_stage_label_nonblank'),
+                ('aftersales_casestage', 'uniq_case_stage_key'),
+                ('aftersales_casetype', 'case_type_key_shape'),
+                ('aftersales_casetype', 'case_type_label_nonblank'),
+                ('aftersales_casetype', 'case_type_priority_valid'),
+                ('aftersales_holiday', 'holiday_title_nonblank'),
+                ('aftersales_slapolicy', 'sla_priority_valid'),
+                ('aftersales_slapolicy', 'sla_units_valid'),
+                ('aftersales_slapolicy', 'uniq_sla_priority_type'),
+                ('aftersales_workingcalendar', 'working_calendar_singleton'),
                 ('attachments_attachment', 'attachment_content_type_allowed'),
                 ('attachments_attachment', 'attachment_exactly_one_parent'),
                 ('attachments_attachment', 'attachment_filename_nonblank'),
@@ -544,13 +567,15 @@ SELECT (
               AND conname = required_constraint.constraint_name
         )
     )
-    -- Every conditional unique constraint (18). A UniqueConstraint
+    -- Every conditional unique constraint (20). A UniqueConstraint
     -- with a condition is a partial unique index, absent from pg_constraint, so it
     -- is proven here: valid, live and unique.
     AND NOT EXISTS (
         SELECT 1
         FROM (
             VALUES
+                ('aftersales_casestage', 'uniq_default_case_stage_key'),
+                ('aftersales_slapolicy', 'uniq_default_sla_priority'),
                 ('billing_cheque', 'uniq_active_cheque_bank_serial'),
                 ('billing_invoice', 'invoice_official_number_unique'),
                 ('billing_order', 'uniq_active_fulfillment_per_invoice'),

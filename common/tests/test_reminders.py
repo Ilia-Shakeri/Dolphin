@@ -167,7 +167,7 @@ class DueWindowTests(ReminderFixtures):
         )
         from aftersales.services import close_after_sales_request
 
-        close_after_sales_request(actor=self.manager, request=request, reason="انجام شد")
+        close_after_sales_request(actor=self.manager, request=request, reason="انجام شد", final_result="resolved")
         data = reminders.reminders_for(self.after_sales_agent)
         kinds = [group["kind"] for group in data["groups"]]
         self.assertNotIn("after_sales_appointment", kinds)

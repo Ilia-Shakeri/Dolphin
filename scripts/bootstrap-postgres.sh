@@ -546,6 +546,14 @@ FROM (
         -- application) is a real DELETE, unlike the append-only tables above.
         ('attachments_attachment', 'SELECT, INSERT, DELETE'),
         ('aftersales_aftersalesrequest', 'SELECT, INSERT, UPDATE, DELETE'),
+        -- Case types, stages, deadlines and the working calendar (2.40.60). Types and
+        -- stages are turned off, never removed; a type's own deadline rule and a
+        -- holiday are calendar entries that may be removed.
+        ('aftersales_casetype', 'SELECT, INSERT, UPDATE'),
+        ('aftersales_casestage', 'SELECT, INSERT, UPDATE'),
+        ('aftersales_slapolicy', 'SELECT, INSERT, UPDATE, DELETE'),
+        ('aftersales_workingcalendar', 'SELECT, INSERT, UPDATE'),
+        ('aftersales_holiday', 'SELECT, INSERT, DELETE'),
         ('auditlog_activitylog', 'SELECT, INSERT'),
         -- Billing. A commercial document header is updated (status, totals);
         -- its line table also carries DELETE because removing a line from a

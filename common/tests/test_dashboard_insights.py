@@ -340,7 +340,7 @@ class GaugeTests(DashboardFixtures):
         closing = create_after_sales_request(
             actor=self.manager, customer=customer, subject="مورد بسته", description="د", status="در بررسی",
         )
-        close_after_sales_request(actor=self.manager, request=closing, reason="حل شد")
+        close_after_sales_request(actor=self.manager, request=closing, reason="حل شد", final_result="resolved")
 
         gauge = self.gauge(dashboard.dashboard_for(self.manager), "after_sales_closure_rate")
         self.assertEqual(gauge["value"], 50.0)

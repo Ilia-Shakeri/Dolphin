@@ -272,7 +272,8 @@ class SeedSyntheticUatTests(TestCase):
         self.assertEqual(after_sales_request.assigned_to, after_sales_operator)
         self.assertEqual(after_sales_request.created_by, manager)
         self.assertEqual(after_sales_request.subject, "پرونده ساختگی خدمات پس از فروش")
-        self.assertEqual(after_sales_request.status, "جدید")
+        # 2.40.60: a case starts at a stage of the list; `status` is its name.
+        self.assertEqual((after_sales_request.stage, after_sales_request.status), ("registered", "ثبت‌شده"))
         self.assertEqual(after_sales_history.request, after_sales_request)
         self.assertEqual(after_sales_history.event, AfterSalesHistory.Event.CREATED)
         self.assertEqual(after_sales_history.actor, manager)

@@ -141,7 +141,6 @@ class AfterSalesRealBrowserTests(BrowserFlowMixin, StaticLiveServerTestCase):
             ("create-after-sales-customer", "مشتری مرورگر خدمات"),
             ("create-after-sales-assigned", "اپراتور خدمات"),
             ("create-after-sales-subject", "پیگیری مرورگر"),
-            ("create-after-sales-status", "جدید"),
             ("create-after-sales-description", "شرح ثبت واقعی پرونده"),
         ])
         self.wait.until(expected_conditions.url_matches(r"/after-sales/\d+/$"))
@@ -158,16 +157,17 @@ class AfterSalesRealBrowserTests(BrowserFlowMixin, StaticLiveServerTestCase):
         self.browser.get(case_url)
         self.wait.until(expected_conditions.visibility_of_element_located((By.ID, "after-sales-detail-content")))
         self.assertEqual(len(self.browser.find_elements(By.ID, "after-sales-assign-form")), 0)
-        self.browser.find_element(By.ID, "after-sales-to-status").send_keys("در حال پیگیری")
+        # 2.40.60: the next stage is chosen from the case's own stage list.
+        Select(self.browser.find_element(By.ID, "after-sales-to-status")).select_by_visible_text("در حال انجام")
         self.browser.find_element(By.ID, "after-sales-status-reason").send_keys("تماس دستی")
         self.browser.find_element(By.CSS_SELECTOR, "#after-sales-status-form button[type='submit']").click()
-        self.wait.until(expected_conditions.text_to_be_present_in_element_value((By.ID, "after-sales-status-detail"), "در حال پیگیری"))
+        self.wait.until(expected_conditions.text_to_be_present_in_element_value((By.ID, "after-sales-status-detail"), "در حال انجام"))
         self.wait.until(expected_conditions.text_to_be_present_in_element((By.ID, "after-sales-history-body"), "تغییر وضعیت"))
 
         self.logout()
         self.login(self.manager)
         self.browser.get(case_url)
-        self.wait.until(expected_conditions.text_to_be_present_in_element_value((By.ID, "after-sales-status-detail"), "در حال پیگیری"))
+        self.wait.until(expected_conditions.text_to_be_present_in_element_value((By.ID, "after-sales-status-detail"), "در حال انجام"))
         self.assertEqual(len(self.browser.find_elements(By.ID, "after-sales-assign-form")), 1)
         self.assertEqual(len(self.browser.find_elements(By.ID, "close-after-sales")), 1)
         self.assert_browser_clean()

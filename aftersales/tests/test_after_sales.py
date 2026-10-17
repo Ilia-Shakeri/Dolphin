@@ -72,7 +72,8 @@ class AfterSalesContractTests(TestCase):
     def test_creation_relations_history_and_audit_are_safe(self):
         self.assertEqual(self.request.history.count(), 1)
         history = self.request.history.get()
-        self.assertEqual((history.event, history.to_status, history.to_user), (AfterSalesHistory.Event.CREATED, "جدید", self.operator))
+        # 2.40.60: the words «جدید» find the nearest stage, «ثبت‌شده».
+        self.assertEqual((history.event, history.to_status, history.to_user), (AfterSalesHistory.Event.CREATED, "ثبت‌شده", self.operator))
         log = ActivityLog.objects.get(operation="after_sales.created", object_id=str(self.request.pk))
         self.assertNotIn("شرح پرونده خدمات", str(log.safe_changes))
         self.assertNotIn("پیگیری نصب", str(log.safe_changes))
@@ -99,10 +100,15 @@ class AfterSalesContractTests(TestCase):
         self.assertEqual(assigned.status_code, 200, assigned.data)
         changed = client.post(
             f"/api/v1/after-sales/{item_id}/transition-status/",
-            {"to_status": "در حال پیگیری", "reason": "تماس شد"}, format="json",
+            {"to_status": "در حال انجام", "reason": "تماس شد"}, format="json",
         )
         self.assertEqual(changed.status_code, 200, changed.data)
-        closed = client.post(f"/api/v1/after-sales/{item_id}/close/", {"reason": "تمام"}, format="json")
+        # 2.40.60: a free word is not a stage, and a case closes with its result.
+        self.assertEqual(client.post(
+            f"/api/v1/after-sales/{item_id}/transition-status/", {"to_status": "در حال پیگیری"}, format="json",
+        ).status_code, 400)
+        self.assertEqual(client.post(f"/api/v1/after-sales/{item_id}/close/", {"reason": "تمام"}, format="json").status_code, 400)
+        closed = client.post(f"/api/v1/after-sales/{item_id}/close/", {"reason": "تمام", "final_result": "resolved"}, format="json")
         self.assertEqual(closed.status_code, 200, closed.data)
         self.assertIsNotNone(closed.data["closed_at"])
         self.assertEqual(AfterSalesRequest.objects.get(pk=item_id).history.count(), 4)
@@ -253,13 +259,13 @@ class AfterSalesContractTests(TestCase):
                     actor=self.manager, customer=self.customer, subject="برگشت", description="شرح", status="جدید",
                 )
         self.assertFalse(AfterSalesRequest.objects.filter(subject="برگشت").exists())
-        with mock.patch("aftersales.services.log_activity", side_effect=RuntimeError("audit unavailable")):
+        with mock.patch("aftersales.workflow.log_activity", side_effect=RuntimeError("audit unavailable")):
             with self.assertRaises(RuntimeError):
                 transition_after_sales_status(
-                    actor=self.operator, request=self.request, to_status="نباید بماند",
+                    actor=self.operator, request=self.request, to_status="در حال بررسی",
                 )
         self.request.refresh_from_db()
-        self.assertEqual(self.request.status, "جدید")
+        self.assertEqual(self.request.status, "ثبت‌شده")
         self.assertEqual(self.request.history.count(), 1)
 
         with mock.patch("aftersales.services.log_activity", side_effect=RuntimeError("audit unavailable")):
@@ -269,9 +275,9 @@ class AfterSalesContractTests(TestCase):
         self.assertEqual(self.request.assigned_to, self.operator)
         self.assertEqual(self.request.history.count(), 1)
 
-        with mock.patch("aftersales.services.log_activity", side_effect=RuntimeError("audit unavailable")):
+        with mock.patch("aftersales.workflow.log_activity", side_effect=RuntimeError("audit unavailable")):
             with self.assertRaises(RuntimeError):
-                close_after_sales_request(actor=self.manager, request=self.request)
+                close_after_sales_request(actor=self.manager, request=self.request, final_result="resolved")
         self.request.refresh_from_db()
         self.assertIsNone(self.request.closed_at)
         self.assertEqual(self.request.history.count(), 1)
@@ -345,7 +351,7 @@ class AfterSalesAppointmentTests(AfterSalesContractTests):
             )
 
     def test_a_closed_case_cannot_be_scheduled(self):
-        close_after_sales_request(actor=self.manager, request=self.request, reason="تمام")
+        close_after_sales_request(actor=self.manager, request=self.request, reason="تمام", final_result="resolved")
         with self.assertRaises(BusinessConflictError):
             schedule_after_sales_appointment(actor=self.manager, request=self.request, appointment_at=timezone.now())
 

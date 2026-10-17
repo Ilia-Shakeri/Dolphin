@@ -64,6 +64,7 @@ export const PAGES = {
         const module6 = await import("dolphin/features/settings/customization-section.js");
         const module7 = await import("dolphin/features/settings/pipeline-section.js");
         const module8 = await import("dolphin/features/settings/call-outcomes-section.js");
+        const module9 = await import("dolphin/features/settings/after-sales-section.js");
         module0.setupSettingsPage();
         module1.setupBackupSection();
         module2.setupScoringSection();
@@ -73,6 +74,7 @@ export const PAGES = {
         module6.setupCustomizationSection();
         module7.setupPipelineSection();
         module8.setupCallOutcomesSection();
+        module9.setupAfterSalesSection();
     },
     "sms-provider-settings": async () => (await import("dolphin/features/settings/sms-provider-settings.js")).setupSmsProviderSettings(),
     "post-provider-settings": async () => (await import("dolphin/features/settings/post-provider-settings.js")).setupPostProviderSettings(),

@@ -40,7 +40,16 @@ def _lock_eligible_operator(user):
 
 
 @transaction.atomic
-def create_after_sales_request(*, actor, customer, subject, description, status, sale=None, document=None, assigned_to=None):
+def create_after_sales_request(
+    *, actor, customer, subject, description, status=None, sale=None, document=None, assigned_to=None,
+    case_type=None, priority=None, stage=None,
+):
+    """Open a case (2.40.60, BIZ-008): a type, a priority (the type's own by
+    default) and a starting stage (the list's first open one by default);
+    the deadlines follow. `status` is the words a client sent before stages
+    existed: used only to find the nearest stage when no stage is named."""
+    from aftersales import workflow
+
     actor = _lock_actor(actor)
     if not has_any_capability(actor, "after_sales.manage"):
         raise BusinessPermissionDenied("ثبت درخواست خدمات پس از فروش مجاز نیست.")
@@ -52,13 +61,32 @@ def create_after_sales_request(*, actor, customer, subject, description, status,
     if document is not None and document.customer_id != customer.pk:
         raise BusinessRuleError({"document": "سند باید متعلق به مشتری انتخاب‌شده باشد."})
     assigned_to = _lock_eligible_operator(assigned_to)
+    workflow.ensure_defaults()
+    if case_type is not None and not case_type.is_active:
+        raise BusinessRuleError({"case_type": "این نوع پرونده خاموش است."})
+    priority = priority or (case_type.default_priority if case_type else "normal")
+    if priority not in workflow.PRIORITY_LABELS:
+        raise BusinessRuleError({"priority": "اولویت باید عادی، فوری یا بحرانی باشد."})
+    if stage:
+        start = workflow.resolve_stage(case_type, stage)
+    elif status:
+        words = _clean(status, field="status", limit=80)
+        known = {item.key: item for item in workflow.stages_for(case_type)}
+        start = next((item for item in known.values() if words in (item.key, item.label)), None)
+        start = start or known.get(workflow.nearest_stage(words))
+    else:
+        start = workflow.first_open(case_type)
+    if start is None or start.kind != "open" or not start.is_active:
+        raise BusinessRuleError({"stage": "پرونده از یکی از مرحله‌های باز شروع می‌شود."})
     item = AfterSalesRequest.objects.create(
         customer=customer, sale=sale, document=document,
         subject=_clean(subject, field="subject", limit=200),
         description=_clean(description, field="description", limit=4000),
-        status=_clean(status, field="status", limit=80),
+        status=start.label, stage=start.key, case_type=case_type, priority=priority,
         assigned_to=assigned_to, created_by=actor,
     )
+    workflow.set_deadlines(item)
+    item.save(update_fields=["response_due", "plan_due", "resolution_due"])
     AfterSalesHistory.objects.create(request=item, event=AfterSalesHistory.Event.CREATED, actor=actor, to_status=item.status, to_user=assigned_to)
     log_activity(actor=actor, operation="after_sales.created", instance=item, changes={"fields": ["customer", "sale", "document", "status", "assigned_to"]})
     return item
@@ -86,28 +114,12 @@ def assign_after_sales_request(*, actor, request, to_user, reason=""):
     return item
 
 
-@transaction.atomic
 def transition_after_sales_status(*, actor, request, to_status, reason=""):
-    actor = _lock_actor(actor)
-    item = AfterSalesRequest.objects.select_for_update().get(pk=request.pk)
-    if not has_any_capability(actor, "after_sales.manage") and not (
-        actor.role == User.Role.SALES_AGENT and actor.workstream == User.Workstream.AFTER_SALES and item.assigned_to_id == actor.pk
-    ):
-        raise BusinessPermissionDenied("تغییر وضعیت خدمات پس از فروش مجاز نیست.")
-    if item.closed_at is not None:
-        raise BusinessConflictError({"closed_at": "درخواست بسته‌شده نمی‌تواند وضعیتش تغییر کند."})
-    to_status = _clean(to_status, field="to_status", limit=80)
-    if item.status == to_status:
-        raise BusinessConflictError({"to_status": "وضعیت هم‌اکنون همین مقدار است."})
-    reason = reason.strip() if isinstance(reason, str) else ""
-    if len(reason) > 500:
-        raise BusinessRuleError({"reason": "این فیلد نباید بیش از ۵۰۰ نویسه داشته باشد."})
-    previous = item.status
-    item.status = to_status
-    item.save(update_fields=["status", "updated_at"])
-    AfterSalesHistory.objects.create(request=item, event=AfterSalesHistory.Event.STATUS_CHANGED, actor=actor, from_status=previous, to_status=to_status, reason=reason)
-    log_activity(actor=actor, operation="after_sales.status_changed", instance=item, changes={"case_from": previous, "case_to": to_status, "reason_provided": bool(reason)})
-    return item
+    """Move a case to another stage of its list (2.40.60): `to_status` is the
+    stage's key or name; the free words of before are no longer taken."""
+    from aftersales import workflow
+
+    return workflow.set_stage(actor=actor, request=request, to_stage=to_status, reason=reason)
 
 
 @transaction.atomic
@@ -136,7 +148,12 @@ def schedule_after_sales_appointment(*, actor, request, appointment_at=None, rea
     if item.next_appointment_at == appointment_at:
         raise BusinessConflictError({"appointment_at": "زمان قرار هم‌اکنون همین مقدار است."})
     item.next_appointment_at = appointment_at
-    item.save(update_fields=["next_appointment_at", "updated_at"])
+    fields = ["next_appointment_at", "updated_at"]
+    if item.responded_at is None:
+        # Booking a visit answers the customer (2.40.60): the first response.
+        item.responded_at = timezone.now()
+        fields.append("responded_at")
+    item.save(update_fields=fields)
     AfterSalesHistory.objects.create(
         request=item, event=AfterSalesHistory.Event.APPOINTMENT_SCHEDULED, actor=actor,
         appointment_at=appointment_at, reason=reason,
@@ -148,19 +165,9 @@ def schedule_after_sales_appointment(*, actor, request, appointment_at=None, rea
     return item
 
 
-@transaction.atomic
-def close_after_sales_request(*, actor, request, reason=""):
-    actor = _lock_actor(actor)
-    if not has_any_capability(actor, "after_sales.manage"):
-        raise BusinessPermissionDenied("بستن درخواست خدمات پس از فروش مجاز نیست.")
-    item = AfterSalesRequest.objects.select_for_update().get(pk=request.pk)
-    if item.closed_at is not None:
-        raise BusinessConflictError({"closed_at": "این درخواست قبلاً بسته شده است."})
-    reason = reason.strip() if isinstance(reason, str) else ""
-    if len(reason) > 500:
-        raise BusinessRuleError({"reason": "این فیلد نباید بیش از ۵۰۰ نویسه داشته باشد."})
-    item.closed_at = timezone.now()
-    item.save(update_fields=["closed_at", "updated_at"])
-    AfterSalesHistory.objects.create(request=item, event=AfterSalesHistory.Event.CLOSED, actor=actor, from_status=item.status, to_status=item.status, reason=reason)
-    log_activity(actor=actor, operation="after_sales.closed", instance=item, changes={"reason_provided": bool(reason)})
-    return item
+def close_after_sales_request(*, actor, request, reason="", final_result=""):
+    """Close a case with its final result (2.40.60): «حل‌شده»، «حل‌نشده» or
+    «مختومه با توافق مشتری» — required."""
+    from aftersales import workflow
+
+    return workflow.close(actor=actor, request=request, final_result=final_result, reason=reason)

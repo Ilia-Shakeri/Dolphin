@@ -16,6 +16,9 @@ from aftersales.serializers import (
     AppointmentSerializer,
     AssignmentSerializer,
     CloseSerializer,
+    PlanSerializer,
+    PrioritySerializer,
+    ReopenSerializer,
     StatusTransitionSerializer,
 )
 from aftersales.services import (
@@ -46,13 +49,13 @@ class AfterSalesRequestViewSet(SensitiveActionThrottleMixin, AdminHardDeleteMode
     queryset = AfterSalesRequest.objects.none()
     serializer_class = AfterSalesRequestSerializer
     http_method_names = ["get", "post", "head", "options"]
-    sensitive_actions = frozenset({"create", "assign", "transition_status", "close", "schedule_appointment"})
+    sensitive_actions = frozenset({"create", "assign", "transition_status", "close", "schedule_appointment", "reopen", "priority", "plan"})
     search_fields = ["subject", "customer__full_name", "status"]
     ordering_fields = ["created_at", "updated_at", "closed_at", "next_appointment_at", "status"]
     #: `appointment_from`/`appointment_to` are the after-sales calendar's own
     #: window — the exact same shape as leads' `follow_up_from`/`follow_up_to`
     #: (sales/views.py), both exact ISO instants a calendar grid already knows.
-    list_query_parameters = {"status", "assigned_to", "is_closed", "appointment_from", "appointment_to"}
+    list_query_parameters = {"status", "stage", "priority", "case_type", "overdue", "assigned_to", "is_closed", "appointment_from", "appointment_to"}
     action_query_parameters = {"history": {"page"}, "assignees": {"page"}}
 
     def get_queryset(self):
@@ -65,6 +68,29 @@ class AfterSalesRequestViewSet(SensitiveActionThrottleMixin, AdminHardDeleteMode
             if not assigned_to.isdecimal() or int(assigned_to) < 1:
                 raise ValidationError({"assigned_to": "یک عدد صحیح مثبت وارد کنید."})
             queryset = queryset.filter(assigned_to_id=int(assigned_to))
+        # 2.40.60: by stage key, priority, type, and the cases past a deadline.
+        stage = self.request.query_params.get("stage")
+        if stage:
+            queryset = queryset.filter(stage=stage)
+        priority = self.request.query_params.get("priority")
+        if priority:
+            if priority not in {"normal", "urgent", "critical"}:
+                raise ValidationError({"priority": "اولویت باید normal، urgent یا critical باشد."})
+            queryset = queryset.filter(priority=priority)
+        case_type = self.request.query_params.get("case_type")
+        if case_type:
+            if not case_type.isdecimal():
+                raise ValidationError({"case_type": "شناسهٔ نوع پرونده درست نیست."})
+            queryset = queryset.filter(case_type_id=int(case_type))
+        if self.request.query_params.get("overdue") == "true":
+            from django.db.models import Q
+
+            now = timezone.now()
+            queryset = queryset.filter(closed_at__isnull=True).filter(
+                Q(response_due__lt=now, responded_at__isnull=True)
+                | Q(plan_due__lt=now, planned_at__isnull=True)
+                | Q(resolution_due__lt=now)
+            )
         is_closed = self.request.query_params.get("is_closed")
         if is_closed is not None:
             if is_closed not in {"true", "false"}:
@@ -150,6 +176,33 @@ class AfterSalesRequestViewSet(SensitiveActionThrottleMixin, AdminHardDeleteMode
     def schedule_appointment(self, request, pk=None):
         serializer = AppointmentSerializer(data=request.data); serializer.is_valid(raise_exception=True)
         item = schedule_after_sales_appointment(actor=request.user, request=self.get_object(), **serializer.validated_data)
+        return Response(self.get_serializer(item).data)
+
+    @extend_schema(request=ReopenSerializer, responses={200: AfterSalesRequestSerializer, 400: VALIDATION_ERROR_RESPONSE, 403: ACCESS_DENIED_RESPONSE, 409: CONFLICT_RESPONSE})
+    @action(detail=True, methods=["post"])
+    def reopen(self, request, pk=None):
+        from aftersales import workflow
+
+        serializer = ReopenSerializer(data=request.data); serializer.is_valid(raise_exception=True)
+        item = workflow.reopen(actor=request.user, request=self.get_object(), **serializer.validated_data)
+        return Response(self.get_serializer(item).data)
+
+    @extend_schema(request=PrioritySerializer, responses={200: AfterSalesRequestSerializer, 400: VALIDATION_ERROR_RESPONSE, 403: ACCESS_DENIED_RESPONSE, 409: CONFLICT_RESPONSE})
+    @action(detail=True, methods=["post"])
+    def priority(self, request, pk=None):
+        from aftersales import workflow
+
+        serializer = PrioritySerializer(data=request.data); serializer.is_valid(raise_exception=True)
+        item = workflow.set_priority(actor=request.user, request=self.get_object(), **serializer.validated_data)
+        return Response(self.get_serializer(item).data)
+
+    @extend_schema(request=PlanSerializer, responses={200: AfterSalesRequestSerializer, 400: VALIDATION_ERROR_RESPONSE, 403: ACCESS_DENIED_RESPONSE, 409: CONFLICT_RESPONSE})
+    @action(detail=True, methods=["post"])
+    def plan(self, request, pk=None):
+        from aftersales import workflow
+
+        serializer = PlanSerializer(data=request.data); serializer.is_valid(raise_exception=True)
+        item = workflow.record_plan(actor=request.user, request=self.get_object(), **serializer.validated_data)
         return Response(self.get_serializer(item).data)
 
     @extend_schema(responses={200: AfterSalesHistorySerializer(many=True), 403: ACCESS_DENIED_RESPONSE, 404: NOT_FOUND_RESPONSE})

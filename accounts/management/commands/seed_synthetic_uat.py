@@ -191,7 +191,7 @@ class Command(BaseCommand):
                 assigned_to=after_sales_operator,
                 subject="پرونده ساختگی خدمات پس از فروش",
                 description="فقط داده ساختگی آزمون پذیرش",
-                status="جدید",
+                stage="registered",
             )
 
         self.stdout.write(self.style.SUCCESS("Synthetic UAT data created."))

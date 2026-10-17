@@ -1035,6 +1035,14 @@ class DolphinAfterSalesListView(AfterSalesAccessView):
     required_feature = "after_sales"
     template_name = "common/after_sales/list.html"
 
+    def get_context_data(self, **kwargs):
+        from aftersales.workflow import page_payload
+
+        context = super().get_context_data(**kwargs)
+        # Types, stages, priorities and results (2.40.60) for the form and filters.
+        context["after_sales_config"] = page_payload()
+        return context
+
 
 class DolphinAfterSalesDetailView(AfterSalesAccessView, ScopedDetailView):
     required_feature = "after_sales"
@@ -1046,6 +1054,13 @@ class DolphinAfterSalesDetailView(AfterSalesAccessView, ScopedDetailView):
 
     def scoped_queryset(self):
         return after_sales_requests_for(self.request.user)
+
+    def get_context_data(self, **kwargs):
+        from aftersales.workflow import page_payload
+
+        context = super().get_context_data(**kwargs)
+        context["after_sales_config"] = page_payload()
+        return context
 
 
 class AuditReaderView(ActiveCrmView):
@@ -1724,6 +1739,14 @@ class DolphinSettingsView(ActiveCrmView):
         )
         if context["can_manage_call_outcomes"]:
             tabs.append(("calls", "تماس و تبدیل"))
+        # Case types, stages, deadlines and the working calendar (2.40.60):
+        # `after_sales` and `customization.manage`, both checked again by
+        # `/api/v1/after-sales-settings/`.
+        context["can_configure_after_sales"] = (
+            feature_enabled("after_sales") and "customization.manage" in context["capabilities"]
+        )
+        if context["can_configure_after_sales"]:
+            tabs.append(("after-sales", "پس از فروش"))
         if context["can_manage_branding"] or context["can_manage_integrations"]:
             tabs.append(("deployment", "استقرار"))
         requested = self.request.GET.get("tab", "")
