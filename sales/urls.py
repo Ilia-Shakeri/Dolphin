@@ -7,6 +7,7 @@ from sales.call_outcome_views import (
     DoNotContactLiftView,
     DoNotContactListView,
     LegacyOutcomeView,
+    SalesSettingsView,
 )
 from sales.campaign_views import CampaignMemberViewSet, CampaignViewSet
 from sales.pipeline_views import (
@@ -40,6 +41,7 @@ urlpatterns = [
     path("call-outcomes/<int:pk>/", CallOutcomeDetailView.as_view(), name="call-outcome"),
     path("call-outcomes/legacy/", LegacyOutcomeView.as_view(), name="call-outcomes-legacy"),
     path("do-not-contact/", DoNotContactListView.as_view(), name="do-not-contact"),
+    path("sales-settings/", SalesSettingsView.as_view(), name="sales-settings"),
     path("do-not-contact/<int:pk>/lift/", DoNotContactLiftView.as_view(), name="do-not-contact-lift"),
     path("pipeline/", PipelineView.as_view(), name="pipeline"),
     path("pipeline/stages/", PipelineStageListView.as_view(), name="pipeline-stages"),

@@ -31,6 +31,7 @@ from common.deployment.profile import feature_enabled
 from common.formatting import money, persian_digits
 from common.jalali import from_jalali, to_jalali
 from common.preferences import effective_preferences
+from sales.conversion import METRICS
 
 # --- Periods -------------------------------------------------------------------
 
@@ -216,7 +217,7 @@ def _conversion(viewer, person, start, end):
 def _user_conversion(viewer, person, period):
     completed, decided = _conversion(viewer, person, period.start, period.end)
     if not decided:
-        return _missing("در این بازه هیچ سرنخی از این کاربر به نتیجه (تکمیل یا کنسل) نرسیده است.")
+        return _missing("در این بازه هیچ سرنخی از این کاربر بسته نشده است (برنده یا بازنده).")
     rate = completed / decided * 100
     previous_completed, previous_decided = _conversion(viewer, person, period.previous_start, period.previous_end)
     previous_rate = previous_completed / previous_decided * 100 if previous_decided else None
@@ -224,8 +225,8 @@ def _user_conversion(viewer, person, period):
         f"{persian_digits(round(rate))}٪",
         raw=round(rate, 1),
         tooltip=(
-            f"{persian_digits(completed)} تکمیل از {persian_digits(decided)} سرنخ تصمیم‌گرفته‌شده در این بازه — "
-            "همان تعریفِ گیج نرخ تبدیل داشبورد."
+            f"{persian_digits(completed)} بسته‌شده با برنده از {persian_digits(decided)} سرنخ بسته‌شده در این بازه. "
+            + METRICS["resolution"].definition
         ),
         trend=_trend(round(rate, 1), round(previous_rate, 1) if previous_rate is not None else None),
     )
@@ -407,7 +408,9 @@ class StatCard:
 CARDS = (
     StatCard("income", "user", 4, "درآمد", "di-dollar", 3, ("sales",), _reads_performance, _user_income),
     StatCard("active_customers", "user", 5, "مشتریان فعال", "di-profile-user", 4, ("leads",), _reads_performance, _user_active_customers),
-    StatCard("conversion", "user", 6, "نرخ تبدیل", "di-chart-simple", 4, ("leads",), _reads_performance, _user_conversion),
+    # «نرخ تعیین تکلیف» (2.40.59, BIZ-004): what this card always measured —
+    # won ÷ closed — under its own name, never «نرخ تبدیل».
+    StatCard("conversion", "user", 6, "نرخ تعیین تکلیف", "di-chart-simple", 4, ("leads",), _reads_performance, _user_conversion),
     StatCard("score", "user", 7, "امتیاز", "di-medal-star", 4, ("person_scoring",), _score_visible("user"), _score("user"), True),
     StatCard("debt", "customer", 4, "بدهکاری", "di-wallet", 4, (), _customer_money_visible, _customer_debt),
     StatCard("purchases", "customer", 5, "مجموع خرید", "di-basket", 4, (), _customer_purchases_visible, _customer_purchases),

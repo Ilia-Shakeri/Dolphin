@@ -371,7 +371,8 @@ Rules:
   flag `was_customer_on_entry`, never a win. `converted` is never typed in;
   cancelling the backing invoice returns the person to engaged/new.
 - **Attribution** (`CampaignAttribution`, one row per invoice; `CampaignAttributionLog`
-  append-only) is last-touch within `CAMPAIGN_ATTRIBUTION_WINDOW_DAYS` (default 30),
+  append-only) is last-touch within the attribution window (since 2.40.59 the company's
+  `SalesSettings.attribution_window_days`, else `DOLPHIN_CAMPAIGN_ATTRIBUTION_WINDOW_DAYS`, default 30),
   run by billing right after `issue_invoice` in a savepoint that can never fail an
   issue (failures are logged to `dolphin.campaigns`). `campaigns.attribute` may
   correct it by hand with a reason, on an *issued* invoice only; the invoice is
@@ -1031,6 +1032,29 @@ Definitions:
 - `average_sale_amount`: `sales_amount / sales_count`; return zero when `sales_count` is zero.
 
 Clearly named interaction/call counts may be added only when the qualifying outcome set is explicit.
+Since 2.40.58 it is (BIZ-003): calls, successful calls (every standard outcome but no answer, busy and
+wrong number) and qualified calls (`Interaction.qualified`) are counted apart.
+
+**Conversion (2.40.59, product-owner decision BIZ-004, 2026-10-17; `sales.conversion`).** One set of
+definitions, each shown with its definition, numerator and denominator:
+
+1. *Lead-to-sale* (`lead_to_sale`) — qualified leads that reached a valid purchase ÷ the qualified
+   leads of the group. A lead is a lead naming a customer or a campaign person; *qualified* = a call
+   marked qualified, or a stage reached that counts as qualified (`PipelineStage.qualifies`). A valid
+   purchase is an issued, not cancelled, invoice after the lead entered and within the attribution
+   window after its last call before the invoice; for campaign people it is the existing attribution
+   (`CampaignAttribution`).
+2. *Resolution* (`resolution`) — leads closed won ÷ all leads closed (won or lost) in the period, by
+   `closed_at`. A different measure: a stage set by hand, not an invoice. The dashboard gauge
+   `lead_conversion_rate` and the user profile card «نرخ تعیین تکلیف» show this one.
+3. *Campaign sales* (`campaign_sales`) — campaign people converted by a valid attributed invoice (never
+   a customer on entry) ÷ the campaign's qualified people, cohort by entry date.
+4. *Repeat purchases* (`repeat`) — someone already a customer on entry who bought again; counted apart.
+
+Groups are by entry date (marketers: `assigned_at`; campaigns: `created_at`). The attribution window is
+`SalesSettings.attribution_window_days` (Settings → «تماس و تبدیل», `customization.manage`, 1–365),
+else `DOLPHIN_CAMPAIGN_ATTRIBUTION_WINDOW_DAYS`, else 30. Cancelling an invoice corrects every figure,
+since each is read from valid invoices; there is no minimum amount. `GET/PATCH sales-settings/`.
 
 ### 10.3 Unresolved metrics
 
@@ -1038,9 +1062,8 @@ Do not publish misleading generic metrics until approved:
 
 - generic “number of customers” semantics;
 - unique customers handled;
-- leads-assigned denominator across reassignment history;
-- conversion rate denominator and reassignment policy;
-- final answered/qualifying call outcome grouping.
+- leads-assigned denominator across reassignment history (the conversion rates group a marketer's
+  leads by the current `assigned_at`; earlier holders are not credited);
 
 Implement the unambiguous report foundation, filters, role scoping, XLSX, OpenAPI, and deterministic tests while recording unresolved metrics in `DOLPHIN_PROJECT_HANDOFF.md`.
 

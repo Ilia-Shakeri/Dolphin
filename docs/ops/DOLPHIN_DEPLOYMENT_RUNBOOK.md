@@ -712,7 +712,8 @@ against the same database is always possible.
   4. enable `campaigns` in the manifest.
   Existing invoices are **not** attributed retroactively; only invoices issued
   after the feature is on are. `DOLPHIN_CAMPAIGN_ATTRIBUTION_WINDOW_DAYS`
-  (default 30) is the last-touch window. *Rolling back:* leave the migrated data
+  (default 30) is the last-touch window until the company sets its own in
+  Settings → «تماس و تبدیل» (2.40.59), which then wins. *Rolling back:* leave the migrated data
   in place; the previous version ignores the new columns, but a person added to
   two campaigns while 2.36.0 ran is two audience rows to it.
 

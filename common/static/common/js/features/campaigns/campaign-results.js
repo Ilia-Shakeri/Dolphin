@@ -17,7 +17,11 @@ const BASE_COLUMNS = [
     ["در تعامل", (row) => count(row.engaged)],
     ["تبدیل‌شده", (row) => count(row.converted)],
     ["از قبل مشتری", (row) => count(row.already_customers)],
-    ["نرخ تبدیل", (row) => percent(row.conversion_rate)],
+    // The campaign sales rate (2.40.59, BIZ-004): new customers won ÷ the
+    // qualified people, with both numbers beside it.
+    ["واجد شرایط", (row) => count(row.qualified)],
+    ["نرخ فروش کمپین", (row) => `${percent(row.conversion_rate)} (${count(row.converted)} از ${count(row.qualified)})`],
+    ["خرید تکراری", (row) => count(row.repeat_purchases)],
 ];
 const MONEY_COLUMNS = [
     ["فروش ثبت‌شده", (row) => `${count(row.registered_sales_count)} — ${money(row.registered_sales_amount)}`],
@@ -47,6 +51,9 @@ export function setupCampaignResults() {
             const data = await apiRequest(`/api/v1/campaigns/results/?${query}`);
             loading.hidden = true;
             if (!data.results.length) { empty.hidden = false; return; }
+            const sample = data.results.find((row) => row.conversion)?.conversion;
+            document.getElementById("results-definition").textContent = sample
+                ? `${sample.label}: ${sample.definition} ${data.repeat_definition || ""}` : "";
             // The money columns are drawn only when the server sent them: a
             // marketer's rows carry counts, never amounts.
             const columns = data.with_money ? [...BASE_COLUMNS, ...MONEY_COLUMNS] : BASE_COLUMNS;

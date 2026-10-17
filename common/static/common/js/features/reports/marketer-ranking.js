@@ -3,6 +3,7 @@ import {toPersianDigits} from "dolphin/core/digits.js";
 import {clearMessages, errorText, globalMessage, withSubmit} from "dolphin/core/messages.js";
 import {money, moneyOrNull, setupMoneyInputs} from "dolphin/core/money.js";
 import {renderBarChart, setupChartRange} from "dolphin/ui/charts.js";
+import {countCard, figureCard} from "dolphin/ui/conversion.js";
 import {guardDirtyDialog} from "dolphin/ui/dialogs.js";
 import {onRealtime} from "dolphin/ui/realtime.js";
 
@@ -20,6 +21,7 @@ const METRICS = {
     successful_calls: {value: (row) => row.successful_calls, show: (row) => `${count(row.successful_calls)} تماس موفق`},
     qualified_calls: {value: (row) => row.qualified_calls, show: (row) => `${count(row.qualified_calls)} واجد شرایط`},
     conversion_rate: {value: (row) => Number(row.conversion_rate || 0), show: (row) => percent(row.conversion_rate)},
+    resolution_rate: {value: (row) => Number(row.resolution_rate || 0), show: (row) => percent(row.resolution_rate)},
 };
 
 /** «↑ ۲» / «↓ ۱» / «تازه» — the place against the window before. */
@@ -94,6 +96,14 @@ export async function setupMarketerRanking() {
         document.getElementById("marketers-total-count").textContent = count(data.totals.sales_count);
         document.getElementById("marketers-total-collected").textContent = money(data.totals.collected_amount);
         document.getElementById("marketers-total-people").textContent = count(data.totals.marketers);
+        // The unified rates for everyone together, each with its definition,
+        // numerator and denominator (2.40.59, BIZ-004).
+        const repeat = data.definitions.find((item) => item.key === "repeat");
+        document.getElementById("marketers-rates").replaceChildren(
+            figureCard(data.totals.lead_to_sale),
+            figureCard(data.totals.resolution),
+            countCard(repeat.label, data.totals.repeat_purchases, repeat.definition),
+        );
         empty.hidden = data.results.length > 0;
         content.hidden = data.results.length === 0;
         if (!data.results.length) return;
@@ -177,8 +187,9 @@ export async function setupMarketerRanking() {
             cell(count(row.calls_count));
             cell(count(row.successful_calls));
             cell(count(row.qualified_calls));
-            cell(`${count(row.leads_completed)} / ${count(row.leads_assigned)}`);
-            cell(percent(row.conversion_rate));
+            cell(`${percent(row.conversion_rate)} (${count(row.won_leads)} از ${count(row.qualified_leads)})`);
+            cell(`${percent(row.resolution_rate)} (${count(row.closed_won)} از ${count(row.closed_leads)})`);
+            cell(count(row.repeat_purchases));
             return tr;
         }));
     }

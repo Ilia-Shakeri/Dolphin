@@ -22,6 +22,7 @@ from accounts.access import has_any_capability
 from accounts.models import User
 from sales.campaigns import channel_labels
 from sales.models import Campaign, CampaignAttribution, Interaction, Sale, TargetAudienceMember
+from sales.conversion import figure
 from sales.pipeline import CAMPAIGN, stages
 
 ZERO = Decimal("0.00")
@@ -106,6 +107,20 @@ def campaign_rows(user, *, ids=None, date_from=None, date_to=None, with_money=Tr
         members.filter(was_customer_on_entry=True).values("campaign_id").annotate(n=Count("id"))
         .values_list("campaign_id", "n")
     )
+    # The campaign sales rate (2.40.59, BIZ-004): new customers won ÷ the
+    # qualified people of the same cohort; repeat purchases apart.
+    from billing.models import Invoice
+    from sales.conversion import qualified_members
+
+    qualified = dict(
+        qualified_members(members).values("campaign_id").annotate(n=Count("id")).values_list("campaign_id", "n")
+    )
+    repeat = dict(
+        CampaignAttribution.objects.filter(
+            member__in=members.filter(was_customer_on_entry=True), invoice__status=Invoice.Status.ISSUED,
+        ).values("member__campaign_id").annotate(n=Count("member_id", distinct=True))
+        .values_list("member__campaign_id", "n")
+    )
     money = {}
     sales = {}
     if with_money:
@@ -152,9 +167,11 @@ def campaign_rows(user, *, ids=None, date_from=None, date_to=None, with_money=Tr
             "engaged": engaged,
             "converted": converted,
             "already_customers": already.get(campaign.pk, 0),
-            "conversion_rate": round(converted * 100 / total, 1) if total else None,
+            "qualified": qualified.get(campaign.pk, 0),
+            "repeat_purchases": repeat.get(campaign.pk, 0),
             "target_progress": round(total * 100 / campaign.target_count, 1) if campaign.target_count else None,
         }
+        _set_campaign_rate(row)
         if with_money:
             attributed = money.get(campaign.pk)
             registered = sales.get(campaign.pk)
@@ -196,7 +213,8 @@ def unattributed_row(user, *, date_from=None, date_to=None):
         "channels": [], "channels_display": [], "channel_display": "—", "is_system": True,
         "starts_on": None, "ends_on": None, "target_count": None, "members": 0,
         "stages": {stage.key: 0 for stage in stages(CAMPAIGN)}, "contacted": 0, "engaged": 0,
-        "converted": 0, "already_customers": 0, "conversion_rate": None, "target_progress": None,
+        "converted": 0, "already_customers": 0, "qualified": 0, "repeat_purchases": 0,
+        "conversion_rate": None, "conversion": figure("campaign_sales", 0, 0), "target_progress": None,
         "children_count": 0, "registered_sales_count": 0, "registered_sales_amount": ZERO,
         "valid_invoices_count": totals["n"], "valid_invoices_amount": totals["amount"],
         "collected_amount": totals["collected"], "remaining_amount": totals["amount"] - totals["collected"],
@@ -204,8 +222,16 @@ def unattributed_row(user, *, date_from=None, date_to=None):
     }
 
 
+def _set_campaign_rate(row):
+    """«نرخ فروش کمپین» on a row, with its definition, numerator and
+    denominator (`sales.conversion`, 2.40.59)."""
+    row["conversion"] = figure("campaign_sales", row["converted"], row["qualified"])
+    rate = row["conversion"]["rate"]
+    row["conversion_rate"] = float(rate) if rate is not None else None
+
+
 _SUMMED = (
-    "members", "contacted", "engaged", "converted", "already_customers",
+    "members", "contacted", "engaged", "converted", "already_customers", "qualified", "repeat_purchases",
     "registered_sales_count", "registered_sales_amount", "valid_invoices_count",
     "valid_invoices_amount", "collected_amount",
 )
@@ -230,7 +256,7 @@ def _roll_up_children(rows):
         for stage in row["stages"]:
             row["stages"][stage] += sum(kid["stages"][stage] for kid in kids)
         total = row["members"]
-        row["conversion_rate"] = round(row["converted"] * 100 / total, 1) if total else None
+        _set_campaign_rate(row)
         # A parent without its own target or budget is the sum of its
         # children's (2.40.0); one with its own keeps it — that is its cap.
         if row.get("target_count") is None:
@@ -332,6 +358,27 @@ def campaign_analysis(user, *, ids=None, date_from=None, date_to=None):
         "invoices_by_month": invoices_by_month,
         "members_by_day": joined_by_day,
         "comparison": _comparison(rows, ids=ids, months=invoices_by_month, date_from=date_from, date_to=date_to),
+        # One figure for everything chosen (2.40.59): the cohort that entered
+        # in the window, its campaign sales rate with what it means, the
+        # repeat purchases apart, and the days from entering to the invoice.
+        **_sales_summary(members, date_from, date_to),
+    }
+
+
+def _sales_summary(members, date_from, date_to):
+    from sales.conversion import METRICS, campaign_sales, time_to_convert
+
+    cohort = members
+    if date_from:
+        cohort = cohort.filter(created_at__date__gte=date_from)
+    if date_to:
+        cohort = cohort.filter(created_at__date__lte=date_to)
+    sales_rate, repeat = campaign_sales(cohort)
+    return {
+        "sales_rate": sales_rate,
+        "repeat_purchases": repeat,
+        "repeat_definition": METRICS["repeat"].definition,
+        "days_to_convert": time_to_convert(cohort),
     }
 
 
@@ -373,6 +420,7 @@ def _comparison(rows, *, ids, months, date_from=None, date_to=None):
             "members": row["members"],
             "contacted": row["contacted"],
             "converted": row["converted"],
+            "qualified": row["qualified"],
             "valid_invoices_count": row.get("valid_invoices_count", 0),
             "valid_invoices_amount": row.get("valid_invoices_amount", ZERO),
             "conversion_rate": row["conversion_rate"],

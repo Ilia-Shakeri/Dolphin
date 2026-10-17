@@ -105,13 +105,16 @@
                             <span class="text-muted fs-8 d-block mt-1" id="analytics-first-contact-note"></span>
                         </div></div></div>
                     </div>
+                    {% comment %} The campaign sales rate and the repeat purchases, each with
+                       what it means (2.40.59, BIZ-004; `sales.conversion`). {% endcomment %}
+                    <div class="row g-5 mb-8" id="analytics-rates"></div>
 
                     <div class="mb-8" data-report-panel="compare">
                         <h4 class="fs-5 fw-bold text-gray-900 mb-1">مقایسهٔ کمپین‌ها</h4>
                         <p class="text-muted fs-7 mb-4" id="analytics-compare-note"></p>
                         <div class="row g-5">
                             <div class="col-xl-8"><div class="performance-chart" id="chart-compare-funnel" role="img" aria-label="مقایسهٔ کمپین‌ها" hidden></div><p class="text-center text-gray-700 py-10" id="chart-compare-funnel-empty" hidden>داده‌ای برای نمایش نیست.</p></div>
-                            <div class="col-xl-4"><h5 class="fs-6 fw-bold text-gray-800 mb-2">نرخ تبدیل (٪)</h5><div class="performance-chart" id="chart-compare" role="img" aria-label="مقایسهٔ نرخ تبدیل" hidden></div><p class="text-center text-gray-700 py-10" id="chart-compare-empty" hidden>داده‌ای برای نمایش نیست.</p></div>
+                            <div class="col-xl-4"><h5 class="fs-6 fw-bold text-gray-800 mb-2">نرخ فروش کمپین (٪)</h5><div class="performance-chart" id="chart-compare" role="img" aria-label="مقایسهٔ نرخ فروش کمپین" hidden></div><p class="text-center text-gray-700 py-10" id="chart-compare-empty" hidden>داده‌ای برای نمایش نیست.</p></div>
                         </div>
                     </div>
 
@@ -135,7 +138,7 @@
 
                     <div data-report-panel="table">
                         <h4 class="fs-5 fw-bold text-gray-900 mb-4">جدول کامل</h4>
-                        <div class="table-responsive"><table class="table align-middle table-row-dashed fs-6 gy-3 mb-0"><thead><tr class="text-start text-gray-700 fw-bold fs-7 gs-0"><th>کمپین</th><th>مخاطب</th><th>تماس</th><th>تعامل</th><th>تبدیل</th><th>نرخ تبدیل</th><th>فاکتور معتبر</th><th>مبلغ فاکتور</th><th>وصول‌شده</th><th>مانده</th></tr></thead><tbody id="analytics-table"></tbody></table></div>
+                        <div class="table-responsive"><table class="table align-middle table-row-dashed fs-6 gy-3 mb-0"><thead><tr class="text-start text-gray-700 fw-bold fs-7 gs-0"><th>کمپین</th><th>مخاطب</th><th>تماس</th><th>تعامل</th><th>تبدیل</th><th>واجد شرایط</th><th>نرخ فروش کمپین</th><th>خرید تکراری</th><th>فاکتور معتبر</th><th>مبلغ فاکتور</th><th>وصول‌شده</th><th>مانده</th></tr></thead><tbody id="analytics-table"></tbody></table></div>
                     </div>
                 </div>
             </div>

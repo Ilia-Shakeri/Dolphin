@@ -696,6 +696,8 @@ FROM (
         -- and the do-not-contact list, whose rows are ended, not removed.
         ('sales_calloutcome', 'SELECT, INSERT, UPDATE'),
         ('sales_donotcontact', 'SELECT, INSERT, UPDATE'),
+        -- This company's sales rules, one row (2.40.59).
+        ('sales_salessettings', 'SELECT, INSERT, UPDATE'),
         -- Person profile (2.20.0). A score snapshot is history (append-only);
         -- the weights are one edited singleton row. A task moves between
         -- states and may be removed by whoever holds `tasks.delete`; a note is

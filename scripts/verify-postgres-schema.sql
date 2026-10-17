@@ -91,6 +91,7 @@ SELECT (
     AND to_regclass('public.sales_productcategory') IS NOT NULL
     AND to_regclass('public.sales_sale') IS NOT NULL
     AND to_regclass('public.sales_salesdocument') IS NOT NULL
+    AND to_regclass('public.sales_salessettings') IS NOT NULL
     AND to_regclass('public.sales_salestarget') IS NOT NULL
     AND to_regclass('public.sales_stagechange') IS NOT NULL
     AND to_regclass('public.sales_targetaudiencemember') IS NOT NULL
@@ -104,7 +105,7 @@ SELECT (
     AND to_regclass('public.telephony_originaterequest') IS NOT NULL
     AND to_regclass('public.timeline_personnote') IS NOT NULL
     AND to_regclass('public.timeline_timelineentry') IS NOT NULL
-    -- Every migration this release ships (129), recorded.
+    -- Every migration this release ships (130), recorded.
     AND NOT EXISTS (
         SELECT 1
         FROM (
@@ -232,6 +233,7 @@ SELECT (
                 ('sales', '0038_seed_pipeline_stages'),
                 ('sales', '0039_call_outcomes'),
                 ('sales', '0040_seed_call_outcomes'),
+                ('sales', '0041_sales_settings'),
                 ('scoring', '0001_initial'),
                 ('sessions', '0001_initial'),
                 ('tasks', '0001_initial'),
@@ -246,7 +248,7 @@ SELECT (
               AND django_migrations.name = required_migration.name
         )
     )
-    -- Every named check and unique constraint (281).
+    -- Every named check and unique constraint (283).
     AND NOT EXISTS (
         SELECT 1
         FROM (
@@ -502,6 +504,8 @@ SELECT (
                 ('sales_sale', 'sale_unit_price_non_negative'),
                 ('sales_salesdocument', 'sales_document_number_nonblank'),
                 ('sales_salesdocument', 'sales_document_postal_status_nonblank'),
+                ('sales_salessettings', 'sales_settings_singleton'),
+                ('sales_salessettings', 'sales_settings_window_range'),
                 ('sales_salestarget', 'sales_target_amount_positive'),
                 ('sales_salestarget', 'sales_target_month_range'),
                 ('sales_salestarget', 'uniq_sales_target_user_month'),

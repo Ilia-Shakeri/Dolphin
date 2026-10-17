@@ -1723,7 +1723,7 @@ class DolphinSettingsView(ActiveCrmView):
             feature_enabled("leads") and "customization.manage" in context["capabilities"]
         )
         if context["can_manage_call_outcomes"]:
-            tabs.append(("calls", "نتیجهٔ تماس"))
+            tabs.append(("calls", "تماس و تبدیل"))
         if context["can_manage_branding"] or context["can_manage_integrations"]:
             tabs.append(("deployment", "استقرار"))
         requested = self.request.GET.get("tab", "")

@@ -3806,6 +3806,10 @@ textarea.form-control-lg {
   margin-bottom: 1.5rem !important;
 }
 
+.mt-0 {
+  margin-top: 0 !important;
+}
+
 .mt-1 {
   margin-top: 0.25rem !important;
 }

@@ -14,7 +14,6 @@ Only the link is ever changed — never the invoice — and every change is logg
 import logging
 from datetime import timedelta
 
-from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
 
@@ -36,7 +35,10 @@ logger = logging.getLogger("dolphin.campaigns")
 
 
 def window_days():
-    return int(getattr(settings, "CAMPAIGN_ATTRIBUTION_WINDOW_DAYS", 30))
+    """The company's attribution window (2.40.59, `sales.conversion`)."""
+    from sales.conversion import window_days as configured
+
+    return configured()
 
 
 def _last_touch(member):

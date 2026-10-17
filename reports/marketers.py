@@ -23,7 +23,8 @@ from accounts.models import User
 from billing.models import Invoice
 
 from reports.services import MONEY_QUANTUM, InvalidReportPeriod, ReportAccessDenied, format_utc_timestamp
-from sales.models import Customer, Interaction, Lead
+from sales.conversion import definitions, figure, rate
+from sales.models import Customer, Interaction
 
 #: What a ranking can be by, with the Persian name the page shows.
 RANKINGS = {
@@ -35,7 +36,8 @@ RANKINGS = {
     "calls_count": "تماس",
     "successful_calls": "تماس موفق",
     "qualified_calls": "تماس واجد شرایط",
-    "conversion_rate": "نرخ تبدیل سرنخ",
+    "conversion_rate": "نرخ تبدیل سرنخ به فروش",
+    "resolution_rate": "نرخ تعیین تکلیف",
 }
 
 
@@ -56,9 +58,17 @@ class MarketerRow:
     #: from the sales, never added into either.
     successful_calls: int
     qualified_calls: int
-    leads_assigned: int
-    leads_completed: int
+    #: The unified rates (2.40.59, BIZ-004; `sales.conversion`): lead-to-sale
+    #: over the qualified leads given to them in the window (`conversion_rate`,
+    #: with its numerator and denominator), resolution over their leads closed
+    #: in the window, and repeat purchases apart.
+    qualified_leads: int
+    won_leads: int
     conversion_rate: Decimal | None
+    closed_leads: int
+    closed_won: int
+    resolution_rate: Decimal | None
+    repeat_purchases: int
     share: Decimal
 
 
@@ -93,14 +103,9 @@ def _figures(user_ids, start, end):
             qualified=Count("id", filter=Q(qualified=True)),
         )
     }
-    leads = {
-        row["assigned_to_id"]: row
-        for row in Lead.objects.filter(assigned_to_id__in=user_ids, assigned_at__gte=start, assigned_at__lt=end)
-        .exclude(source="campaign")
-        .values("assigned_to_id")
-        .annotate(assigned=Count("id"), completed=Count("id", filter=Q(status=Lead.Status.COMPLETED)))
-    }
-    return invoices, customers, calls, leads
+    from sales.conversion import per_owner
+
+    return invoices, customers, calls, per_owner(user_ids, start, end)
 
 
 def _money(value):
@@ -115,10 +120,8 @@ def _metric_rows(users, start, end):
         sold = invoices.get(user.pk, {})
         count = sold.get("count", 0)
         amount = _money(sold.get("amount"))
-        handed = leads.get(user.pk, {})
+        handed = leads[user.pk]
         called = calls.get(user.pk, {})
-        assigned = handed.get("assigned", 0)
-        completed = handed.get("completed", 0)
         rows[user.pk] = {
             "sales_count": count,
             "sales_amount": amount,
@@ -128,9 +131,13 @@ def _metric_rows(users, start, end):
             "calls_count": called.get("n", 0),
             "successful_calls": called.get("successful", 0),
             "qualified_calls": called.get("qualified", 0),
-            "leads_assigned": assigned,
-            "leads_completed": completed,
-            "conversion_rate": (Decimal(completed * 100) / assigned).quantize(Decimal("0.1"), rounding=ROUND_HALF_UP) if assigned else None,
+            "qualified_leads": handed["qualified"],
+            "won_leads": handed["won"],
+            "conversion_rate": rate(handed["won"], handed["qualified"]),
+            "closed_leads": handed["closed"],
+            "closed_won": handed["closed_won"],
+            "resolution_rate": rate(handed["closed_won"], handed["closed"]),
+            "repeat_purchases": handed["repeat"],
         }
     return rows
 
@@ -165,7 +172,7 @@ def build_marketer_ranking(*, actor, period_start, period_end, ordering="sales_a
     results = []
     for pk in ordered:
         row = current[pk]
-        had_anything = any(before[pk][key] for key in ("sales_count", "customers_count", "calls_count", "leads_assigned"))
+        had_anything = any(before[pk][key] for key in ("sales_count", "customers_count", "calls_count", "qualified_leads", "closed_leads"))
         results.append(MarketerRow(
             user_id=pk,
             name=names[pk],
@@ -188,7 +195,17 @@ def build_marketer_ranking(*, actor, period_start, period_end, ordering="sales_a
             "calls_count": sum(row["calls_count"] for row in current.values()),
             "successful_calls": sum(row["successful_calls"] for row in current.values()),
             "qualified_calls": sum(row["qualified_calls"] for row in current.values()),
+            "lead_to_sale": figure(
+                "lead_to_sale", sum(row["won_leads"] for row in current.values()),
+                sum(row["qualified_leads"] for row in current.values()),
+            ),
+            "resolution": figure(
+                "resolution", sum(row["closed_won"] for row in current.values()),
+                sum(row["closed_leads"] for row in current.values()),
+            ),
+            "repeat_purchases": sum(row["repeat_purchases"] for row in current.values()),
         },
+        "definitions": definitions(),
         "results": results,
     }
 

@@ -172,6 +172,32 @@ export function setupCallOutcomesSection() {
         });
     });
 
+    // The attribution window and the figures' meanings (2.40.59).
+    const salesForm = document.getElementById("sales-settings-form");
+    function renderSalesSettings(value) {
+        document.getElementById("sales-settings-window").value = String(value.attribution_window_days);
+        document.getElementById("sales-settings-default").hidden = !value.is_default;
+        document.getElementById("sales-settings-definitions").replaceChildren(...value.definitions.flatMap((item) => {
+            const term = document.createElement("dt");
+            term.className = "fw-bold text-gray-900 fs-7";
+            term.textContent = item.label;
+            const detail = document.createElement("dd");
+            detail.className = "text-gray-700 fs-7 mb-4";
+            detail.textContent = item.denominator_label
+                ? `${item.definition} صورت: ${item.numerator_label}؛ مخرج: ${item.denominator_label}.`
+                : item.definition;
+            return [term, detail];
+        }));
+    }
+    salesForm?.addEventListener("submit", (event) => {
+        event.preventDefault();
+        withSubmit(salesForm, async () => {
+            const days = document.getElementById("sales-settings-window").value.trim();
+            renderSalesSettings(await apiRequest("/api/v1/sales-settings/", {method: "PATCH", body: {attribution_window_days: Number(days)}}));
+            globalMessage("پنجرهٔ انتساب ذخیره شد. از این پس برای خریدهای تازه به کار می‌رود.", true);
+        });
+    });
+
     document.getElementById("call-outcome-add").addEventListener("click", () => open());
     [dialog, liftDialog].forEach((node) => node.querySelectorAll("[data-close-dialog]")
         .forEach((close) => close.addEventListener("click", () => node.close())));
@@ -185,5 +211,6 @@ export function setupCallOutcomesSection() {
             showError(error);
         }
         await loadBlocks();
+        try { renderSalesSettings(await apiRequest("/api/v1/sales-settings/")); } catch (error) { showError(error); }
     })();
 }

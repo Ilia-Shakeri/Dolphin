@@ -38,7 +38,7 @@ from common.dashboard_layout import apply_layout
 from common.dashboard_panels import panels_for
 from common.preferences import effective_preferences
 from common.deployment.profile import feature_enabled
-from sales.models import Lead, Sale
+from sales.models import Sale
 from sales.selectors import interactions_for, leads_for, sales_for, work_leads_for
 
 #: Weeks on the trend chart. A quarter is long enough to show a direction and
@@ -347,7 +347,7 @@ def _after_sales_kpis(user, *, now):
     ]
 
 
-def _gauge(key, label, *, rate, hint, accent="primary", url=None):
+def _gauge(key, label, *, rate, hint, accent="primary", url=None, definition=""):
     """A 0–100 figure meant for the radial gauge, not a bare KPI tile.
 
     `rate` is already a plain float in that range — every caller below
@@ -362,6 +362,9 @@ def _gauge(key, label, *, rate, hint, accent="primary", url=None):
         "hint": hint,
         "accent": accent,
         "url": url,
+        # What the figure means (2.40.59, BIZ-004: «تعریف هر شاخص و صورت و
+        # مخرج آن مشخص باشد»); `hint` carries the numerator and denominator.
+        "definition": definition,
     }
 
 
@@ -375,19 +378,28 @@ def _gauges(user, *, now, unit):
     gauges = []
 
     if feature_enabled("leads"):
+        from sales.campaign_analytics import members_for
+        from sales.conversion import lead_to_sale_all, resolution
+
         leads = work_leads_for(user)
-        decided = leads.filter(status__in=[Lead.Status.COMPLETED, Lead.Status.CANCELLED]).count()
-        if decided:
-            completed = leads.filter(status=Lead.Status.COMPLETED).count()
-            rate = completed / decided * 100
-            gauges.append(
-                _gauge(
-                    "lead_conversion_rate", "نرخ تبدیل سرنخ",
-                    rate=rate,
-                    hint=f"{formatting.persian_digits(completed)} از {formatting.persian_digits(decided)} سرنخ تصمیم‌گیری‌شده",
-                    accent="success", url="/leads/",
-                )
-            )
+        # The two rates of `sales.conversion` (2.40.59, BIZ-004), never one in
+        # place of the other: lead-to-sale counts valid purchases among the
+        # qualified leads; resolution counts leads closed as won among those
+        # closed. Before 2.40.59 the second was shown as «نرخ تبدیل سرنخ».
+        sold, _repeat = lead_to_sale_all(leads, members_for(user))
+        if sold["denominator"]:
+            gauges.append(_gauge(
+                "lead_to_sale_rate", sold["label"], rate=float(sold["rate"]),
+                hint=f"{formatting.persian_digits(sold['numerator'])} از {formatting.persian_digits(sold['denominator'])} سرنخ واجد شرایط",
+                accent="success", url="/leads/", definition=sold["definition"],
+            ))
+        closed = resolution(leads)
+        if closed["denominator"]:
+            gauges.append(_gauge(
+                "lead_conversion_rate", closed["label"], rate=float(closed["rate"]),
+                hint=f"{formatting.persian_digits(closed['numerator'])} از {formatting.persian_digits(closed['denominator'])} سرنخ بسته‌شده",
+                accent="primary", url="/leads/", definition=closed["definition"],
+            ))
 
     if feature_enabled("invoices"):
         invoices = list(invoices_for(user).filter(status="issued"))

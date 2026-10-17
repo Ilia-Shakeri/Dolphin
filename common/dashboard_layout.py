@@ -50,7 +50,8 @@ WIDGET_CATALOG = [
     ("after_sales_closed_this_month", "بسته‌شده در این ماه (پس از فروش)", "خدمات پس از فروش"),
     ("trend", "روند فروش ۱۲ هفته‌ای", "فروش"),
     ("breakdown", "نمودار تفکیک وضعیت", "سرنخ‌ها / پس از فروش"),
-    ("lead_conversion_rate", "گیج نرخ تبدیل سرنخ", "سرنخ‌ها"),
+    ("lead_to_sale_rate", "گیج نرخ تبدیل سرنخ به فروش", "سرنخ‌ها"),
+    ("lead_conversion_rate", "گیج نرخ تعیین تکلیف سرنخ", "سرنخ‌ها"),
     ("receivables_collection_rate", "گیج نرخ وصول مطالبات", "فاکتور"),
     ("after_sales_closure_rate", "گیج نرخ بسته‌شدن پرونده‌ها", "خدمات پس از فروش"),
     ("agent_share", "سهم هر بازاریاب از فروش", "فروش"),
@@ -192,6 +193,7 @@ DEFAULT_WIDGET_ROWS = {
     "calls_this_week": 30,
     "after_sales_open": 30,
     "after_sales_closed_this_month": 30,
+    "lead_to_sale_rate": 36,
     "lead_conversion_rate": 36,
     "receivables_collection_rate": 36,
     "after_sales_closure_rate": 36,
@@ -212,6 +214,7 @@ FALLBACK_WIDGET_ROWS = 22
 #: everything else is a tile.
 DEFAULT_WIDGET_SIZES = {
     "trend": "two_thirds",
+    "lead_to_sale_rate": "third",
     "lead_conversion_rate": "third",
     "receivables_collection_rate": "third",
     "after_sales_closure_rate": "third",
@@ -253,6 +256,7 @@ WIDGET_MIN_ROWS = {
     "trend": 50,
     "breakdown": 40,
     "agent_share": 40,
+    "lead_to_sale_rate": 30,
     "lead_conversion_rate": 30,
     "receivables_collection_rate": 30,
     "after_sales_closure_rate": 30,

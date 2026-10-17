@@ -507,6 +507,23 @@
     </div>
 </section>
 <section class="card mb-5 mb-xl-8">
+    {% comment %} The attribution window and what each conversion figure means
+       (2.40.59, BIZ-004; `sales.conversion`, `/api/v1/sales-settings/`). {% endcomment %}
+    <div class="card-header border-0 pt-6">
+        <div class="card-title flex-column">
+            <h2>نرخ تبدیل و پنجرهٔ انتساب</h2>
+            <span class="text-muted fs-7 mt-1">خرید معتبری که تا این تعداد روز پس از آخرین تماس مرتبط ثبت شود، تبدیل همان سرنخ یا کمپین شمرده می‌شود. بیرون از آن فقط با انتساب دستی مدیر.</span>
+        </div>
+    </div>
+    <div class="card-body pt-2">
+        <form id="sales-settings-form" class="row g-5 align-items-end" novalidate>
+            <div class="col-md-4"><label class="form-label fw-semibold required" for="sales-settings-window">پنجرهٔ انتساب (روز)</label><input class="form-control form-control-solid" id="sales-settings-window" name="attribution_window_days" type="text" inputmode="numeric" data-decimal-input data-decimal-places="0" data-decimal-min="1" data-decimal-max="365" dir="ltr"><p class="text-muted fs-8 mt-1 mb-0" id="sales-settings-default" hidden>مقدار پیش‌فرض استقرار.</p><p class="text-danger fs-8 mt-1 mb-0" data-error-for="attribution_window_days"></p></div>
+            <div class="col-md-4"><button class="btn btn-primary" type="submit">ذخیره</button></div>
+        </form>
+        <dl class="mt-6 mb-0" id="sales-settings-definitions"></dl>
+    </div>
+</section>
+<section class="card mb-5 mb-xl-8">
     <div class="card-header border-0 pt-6">
         <div class="card-title flex-column">
             <h2>نگاشت تماس‌های قدیمی</h2>

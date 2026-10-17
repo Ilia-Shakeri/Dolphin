@@ -324,7 +324,9 @@ class CampaignViewSet(SensitiveActionThrottleMixin, AdminHardDeleteModelViewSet)
             rows.append(unattributed_row(
                 request.user, date_from=_date_param(request, "date_from"), date_to=_date_param(request, "date_to"),
             ))
-        return Response({"results": rows, "with_money": with_money})
+        from sales.conversion import METRICS
+
+        return Response({"results": rows, "with_money": with_money, "repeat_definition": METRICS["repeat"].definition})
 
     @action(detail=False, methods=["get"])
     def analytics(self, request):
@@ -357,14 +359,14 @@ class CampaignViewSet(SensitiveActionThrottleMixin, AdminHardDeleteModelViewSet)
         sheet.title = "campaigns"
         sheet.append([
             "کمپین", "وضعیت", "کانال", "اعضا", "تماس گرفته‌شده", "در تعامل", "تبدیل‌شده", "از قبل مشتری",
-            "نرخ تبدیل (٪)", "فروش ثبت‌شده (تعداد)", "فروش ثبت‌شده (مبلغ)", "فاکتور معتبر (تعداد)",
+            "واجد شرایط", "نرخ فروش کمپین (٪)", "خرید تکراری", "فروش ثبت‌شده (تعداد)", "فروش ثبت‌شده (مبلغ)", "فاکتور معتبر (تعداد)",
             "فاکتور معتبر (مبلغ)", "وصول‌شده", "مانده", "بودجه",
         ])
         for row in rows:
             sheet.append([
                 safe_spreadsheet_text(row["name"]), row["status_display"], row["channel_display"], row["members"],
-                row["contacted"], row["engaged"], row["converted"], row["already_customers"],
-                row["conversion_rate"] if row["conversion_rate"] is not None else "",
+                row["contacted"], row["engaged"], row["converted"], row["already_customers"], row["qualified"],
+                row["conversion_rate"] if row["conversion_rate"] is not None else "", row["repeat_purchases"],
                 row["registered_sales_count"], float(row["registered_sales_amount"]),
                 row["valid_invoices_count"], float(row["valid_invoices_amount"]), float(row["collected_amount"]),
                 float(row["remaining_amount"]),

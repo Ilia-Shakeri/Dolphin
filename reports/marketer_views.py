@@ -46,10 +46,35 @@ class MarketerRowSerializer(serializers.Serializer):
     calls_count = serializers.IntegerField()
     successful_calls = serializers.IntegerField()
     qualified_calls = serializers.IntegerField()
-    leads_assigned = serializers.IntegerField()
-    leads_completed = serializers.IntegerField()
+    qualified_leads = serializers.IntegerField()
+    won_leads = serializers.IntegerField()
     conversion_rate = serializers.DecimalField(max_digits=6, decimal_places=1, allow_null=True)
+    closed_leads = serializers.IntegerField()
+    closed_won = serializers.IntegerField()
+    resolution_rate = serializers.DecimalField(max_digits=6, decimal_places=1, allow_null=True)
+    repeat_purchases = serializers.IntegerField()
     share = serializers.DecimalField(max_digits=6, decimal_places=1)
+
+
+class FigureSerializer(serializers.Serializer):
+    """One rate with what it means (2.40.59, `sales.conversion.figure`)."""
+
+    key = serializers.CharField()
+    label = serializers.CharField()
+    definition = serializers.CharField()
+    numerator_label = serializers.CharField()
+    denominator_label = serializers.CharField()
+    numerator = serializers.IntegerField()
+    denominator = serializers.IntegerField()
+    rate = serializers.DecimalField(max_digits=6, decimal_places=1, allow_null=True)
+
+
+class DefinitionSerializer(serializers.Serializer):
+    key = serializers.CharField()
+    label = serializers.CharField()
+    definition = serializers.CharField()
+    numerator_label = serializers.CharField(allow_blank=True)
+    denominator_label = serializers.CharField(allow_blank=True)
 
 
 class MarketerTotalsSerializer(serializers.Serializer):
@@ -61,6 +86,9 @@ class MarketerTotalsSerializer(serializers.Serializer):
     calls_count = serializers.IntegerField()
     successful_calls = serializers.IntegerField()
     qualified_calls = serializers.IntegerField()
+    lead_to_sale = FigureSerializer()
+    resolution = FigureSerializer()
+    repeat_purchases = serializers.IntegerField()
 
 
 class OrderingSerializer(serializers.Serializer):
@@ -75,6 +103,7 @@ class MarketerRankingSerializer(serializers.Serializer):
     orderings = OrderingSerializer(many=True)
     totals = MarketerTotalsSerializer()
     results = MarketerRowSerializer(many=True)
+    definitions = DefinitionSerializer(many=True)
 
 
 class MarketerRankingView(FeatureGatedAPIMixin, APIView):
@@ -87,8 +116,9 @@ class MarketerRankingView(FeatureGatedAPIMixin, APIView):
         responses={200: MarketerRankingSerializer, 400: VALIDATION_ERROR_RESPONSE, 403: ACCESS_DENIED_RESPONSE, 429: THROTTLED_RESPONSE},
         description=(
             "Every active marketer (Sales Agent, sales workstream) for a window: issued invoices they "
-            "made (count, amount, collected, average), customers added, calls logged, leads assigned "
-            "and completed. Ranked by `ordering` (competition ranking), with the rank each held over "
+            "made (count, amount, collected, average), customers added, calls logged (all, successful, "
+            "qualified), the lead-to-sale and resolution rates with their numerators and denominators, and "
+            "repeat purchases (`sales.conversion`). Ranked by `ordering` (competition ranking), with the rank each held over "
             "the window of equal length before. `reports.company` only."
         ),
     )

@@ -32,6 +32,9 @@
         <div class="col-sm-6 col-xl-3"><div class="card card-flush h-100 border border-gray-300"><div class="card-body py-5"><span class="text-muted fw-semibold fs-7 d-block">وصول‌شده</span><span class="text-gray-900 fw-bolder fs-2 mt-2 d-block" id="marketers-total-collected">—</span></div></div></div>
         <div class="col-sm-6 col-xl-3"><div class="card card-flush h-100 border border-gray-300"><div class="card-body py-5"><span class="text-muted fw-semibold fs-7 d-block">بازاریاب فعال</span><span class="text-gray-900 fw-bolder fs-2 mt-2 d-block" id="marketers-total-people">—</span></div></div></div>
     </div>
+    {% comment %} The unified rates (2.40.59, BIZ-004; `sales.conversion`), each with its
+       definition, numerator and denominator. {% endcomment %}
+    <div class="row g-5 mt-0" id="marketers-rates"></div>
 </div></section>
 
 {% comment %} هدف ماهانهٔ فروش (۲.۴۰.۴۱، نقشهٔ راه «اولویت ۱.۵»). هدف را مدیر برای هر ماه
@@ -88,7 +91,7 @@
         <h3 class="fs-5 fw-bold text-gray-900 mb-4">جدول کامل</h3>
         <div class="table-responsive"><table class="table align-middle table-row-dashed fs-6 gy-3 mb-0">
             <thead><tr class="text-start text-gray-700 fw-bold fs-7 gs-0">
-                <th>رتبه</th><th>بازاریاب</th><th>فاکتور</th><th>مبلغ فروش</th><th>سهم از فروش</th><th>وصول‌شده</th><th>میانگین فاکتور</th><th>مشتری تازه</th><th>تماس</th><th title="کسی واقعاً پاسخ داد: همهٔ نتیجه‌ها جز پاسخ نداد، خط اشغال و شمارهٔ نامعتبر">تماس موفق</th><th title="در تماس، نیاز واقعی تأیید شد">واجد شرایط</th><th>سرنخ (بسته / داده‌شده)</th><th>نرخ تبدیل</th>
+                <th>رتبه</th><th>بازاریاب</th><th>فاکتور</th><th>مبلغ فروش</th><th>سهم از فروش</th><th>وصول‌شده</th><th>میانگین فاکتور</th><th>مشتری تازه</th><th>تماس</th><th title="کسی واقعاً پاسخ داد: همهٔ نتیجه‌ها جز پاسخ نداد، خط اشغال و شمارهٔ نامعتبر">تماس موفق</th><th title="در تماس، نیاز واقعی تأیید شد">واجد شرایط</th><th title="سرنخ واجد شرایط با خرید معتبر از سرنخ‌های واجد شرایطی که در بازه به او داده شد">نرخ تبدیل به فروش</th><th title="بسته‌شده با برنده از همهٔ سرنخ‌هایی که در بازه بسته شد">نرخ تعیین تکلیف</th><th title="مشتری قبلی که دوباره خرید معتبر کرد">خرید تکراری</th>
             </tr></thead>
             <tbody id="marketers-table"></tbody>
         </table></div>

@@ -305,8 +305,14 @@ export function gaugeCard(gauge) {
     const hint = document.createElement("span");
     hint.className = "text-muted fs-8 mt-1";
     hint.textContent = gauge.hint;
-
     body.append(label, canvas, empty, hint);
+    // What the figure means (2.40.59), under its numerator and denominator.
+    if (gauge.definition) {
+        const definition = document.createElement("p");
+        definition.className = "text-muted fs-8 mt-2 mb-0";
+        definition.textContent = gauge.definition;
+        body.append(definition);
+    }
     card.appendChild(body);
     column.appendChild(card);
     return {column, canvas, empty};

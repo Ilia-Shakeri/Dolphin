@@ -296,7 +296,8 @@ class CustomerRuleStrategy(ScoringStrategy):
 
 USER_FACTORS = (
     Factor("task_on_time", "انجام به‌موقع وظیفه‌ها", 20),
-    Factor("conversion", "نرخ تبدیل سرنخ", 30),
+    # Won ÷ closed (2.40.59): the resolution rate of `sales.conversion`.
+    Factor("conversion", "نرخ تعیین تکلیف سرنخ", 30),
     Factor("follow_up_speed", "سرعت پیگیری", 20),
     Factor("activity", "فعالیت", 20),
     Factor("missed_call_follow_up", "پیگیری تماس‌های بی‌پاسخ", 10),
@@ -398,7 +399,7 @@ class UserRuleStrategy(ScoringStrategy):
             rate = completed / decided
             results.append(FactorResult(
                 "conversion", rate,
-                f"{_n(completed)} از {_n(decided)} سرنخ تصمیم‌گرفته‌شده تکمیل شده ({_n(round(rate * 100))}٪).",
+                f"{_n(completed)} از {_n(decided)} سرنخ بسته‌شده با برنده بسته شده ({_n(round(rate * 100))}٪).",
             ))
 
         waits = context["speed"].get(pk, [])

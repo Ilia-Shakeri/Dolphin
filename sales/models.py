@@ -782,6 +782,31 @@ class DoNotContact(models.Model):
         ]
 
 
+class SalesSettings(models.Model):
+    """This company's sales rules, one row (2.40.59, BIZ-004).
+
+    `attribution_window_days` is how long after the last relevant call a
+    valid purchase still counts as that lead's or that campaign's conversion
+    (owner: 30 days by default, changeable in Settings). Empty means the
+    deployment's `DOLPHIN_CAMPAIGN_ATTRIBUTION_WINDOW_DAYS`, else 30
+    (`sales.conversion.window_days`).
+    """
+
+    attribution_window_days = models.PositiveSmallIntegerField(null=True, blank=True)
+    updated_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name="+")
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.CheckConstraint(condition=Q(pk=1), name="sales_settings_singleton"),
+            models.CheckConstraint(
+                condition=Q(attribution_window_days__isnull=True)
+                | Q(attribution_window_days__gte=1, attribution_window_days__lte=365),
+                name="sales_settings_window_range",
+            ),
+        ]
+
+
 class LeadAssignmentHistory(models.Model):
     lead = models.ForeignKey(Lead, on_delete=models.PROTECT, related_name="assignment_history")
     from_user = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name="assignments_lost")

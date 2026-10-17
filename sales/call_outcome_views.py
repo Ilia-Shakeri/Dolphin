@@ -32,6 +32,10 @@ class LegacyMapSerializer(RejectServerFieldsMixin, serializers.Serializer):
     result = serializers.CharField(max_length=40)
 
 
+class SalesSettingsSerializer(RejectServerFieldsMixin, serializers.Serializer):
+    attribution_window_days = serializers.IntegerField()
+
+
 class LiftSerializer(RejectServerFieldsMixin, serializers.Serializer):
     reason = serializers.CharField(max_length=500, allow_blank=True)
 
@@ -109,6 +113,25 @@ def _serialize_block(row):
         "id": row.pk, "phone": row.normalized_phone, "note": row.note, "interaction": row.interaction_id,
         "created_by_display": user.get_full_name() or user.username, "created_at": row.created_at.isoformat(),
     }
+
+
+class SalesSettingsView(OutcomeAccessMixin, APIView):
+    """`sales-settings/` (2.40.59, BIZ-004): the attribution window, and what
+    each conversion figure means (`sales.conversion`)."""
+
+    @extend_schema(responses={200: dict, 403: ACCESS_DENIED_RESPONSE})
+    def get(self, request):
+        from sales.conversion import settings_payload
+
+        return Response(settings_payload())
+
+    @extend_schema(request=SalesSettingsSerializer, responses={200: dict, 400: VALIDATION_ERROR_RESPONSE})
+    def patch(self, request):
+        from sales.conversion import update_settings
+
+        body = SalesSettingsSerializer(data=request.data)
+        body.is_valid(raise_exception=True)
+        return Response(update_settings(actor=request.user, **body.validated_data))
 
 
 class DoNotContactListView(OutcomeAccessMixin, APIView):

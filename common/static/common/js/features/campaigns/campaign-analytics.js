@@ -4,6 +4,7 @@ import {showError} from "dolphin/core/messages.js";
 import {money} from "dolphin/core/money.js";
 import {renderAreaChart, renderBarChart, renderGroupedBarChart, renderMultiLineChart} from "dolphin/ui/charts.js";
 import {enhanceChecklistSelect} from "dolphin/ui/checklist-select.js";
+import {countCard, figureCard} from "dolphin/ui/conversion.js";
 import {loadAllPages} from "dolphin/ui/lists.js";
 import {setupReportWizard} from "dolphin/ui/report-wizard.js";
 
@@ -47,6 +48,14 @@ export async function setupCampaignAnalytics() {
             ? "—" : `${count(data.first_contact_hours)} ساعت`;
         document.getElementById("analytics-first-contact-note").textContent = data.first_contact_excluded
             ? `${count(data.first_contact_excluded)} نفر با تماسِ پیش از تاریخ ورود کنار گذاشته شدند.` : "";
+        // 2.40.59: the rate with its numerator, denominator and meaning; the
+        // repeat purchases apart; the days from entering to the invoice.
+        document.getElementById("analytics-rates").replaceChildren(
+            figureCard(data.sales_rate, {
+                extra: data.days_to_convert === null ? "" : `میانگین ${count(data.days_to_convert)} روز تا فاکتور`,
+            }),
+            countCard("خرید تکراری", data.repeat_purchases, data.repeat_definition),
+        );
     }
 
     function drawComparison(comparison) {
@@ -64,7 +73,7 @@ export async function setupCampaignAnalytics() {
         renderBarChart(...chartHost("compare"), rows
             .filter((row) => row.conversion_rate !== null)
             .map((row) => ({label: row.name, value: row.conversion_rate, display: `${count(row.conversion_rate)}٪`})),
-        {ariaLabel: "مقایسهٔ نرخ تبدیل"});
+        {ariaLabel: "مقایسهٔ نرخ فروش کمپین"});
         const monthly = rows.map((row) => ({name: row.name, values: row.invoices_by_month}));
         if (comparison.months.length > 1) {
             renderMultiLineChart(...chartHost("monthly"), comparison.months, monthly, {ariaLabel: "فاکتورهای معتبر هر کمپین در هر ماه"});
@@ -80,7 +89,9 @@ export async function setupCampaignAnalytics() {
             [
                 row.parent_id ? `— ${row.name}` : row.name,
                 count(row.members), count(row.contacted), count(row.engaged), count(row.converted),
+                count(row.qualified),
                 row.conversion_rate === null ? "—" : `${count(row.conversion_rate)}٪`,
+                count(row.repeat_purchases),
                 count(row.valid_invoices_count), money(row.valid_invoices_amount), money(row.collected_amount),
                 row.remaining_amount === undefined || row.remaining_amount === null ? "—" : money(row.remaining_amount),
             ].forEach((value) => {
