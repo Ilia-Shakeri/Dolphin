@@ -56,12 +56,13 @@ class SalesShellContractTests(SimpleTestCase):
         interaction_form = interaction_list.split('id="create-interaction-form"', 1)[1].split("</form>", 1)[0]
         for field in ("created_by", "is_active"):
             self.assertNotIn(f'name="{field}"', customer_form)
-        # `status` is deliberately absent from this list: the person working the
-        # campaign sets it, and the service validates it against the three
-        # permitted states. Ownership and assignment stay server-managed.
-        for field in ("customer", "assigned_to", "assigned_by", "assigned_at", "created_by", "source_payload"):
+        # Since 2.40.57 neither `status` nor `stage` is on this form: the stage
+        # moves through «تغییر مرحله» (`leads/<id>/stage/`), which keeps the
+        # history, and `status` follows it. Ownership and assignment stay
+        # server-managed.
+        for field in ("customer", "assigned_to", "assigned_by", "assigned_at", "created_by", "source_payload", "status", "stage"):
             self.assertNotIn(f'name="{field}"', lead_form)
-        self.assertIn('name="status"', lead_form)
+        self.assertIn('id="lead-stage-change"', lead_detail)
         for field in ("customer", "agent"):
             self.assertNotIn(f'name="{field}"', interaction_form)
 

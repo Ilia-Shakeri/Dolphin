@@ -506,6 +506,9 @@ class DatabasePrivilegeContractTests(SimpleTestCase):
             "sales_ebazarproductlink": "SELECT, INSERT, UPDATE",
             "sales_salestarget": "SELECT, INSERT, UPDATE, DELETE",
             "sales_postprovidersettings": "SELECT, INSERT, UPDATE",
+            "sales_pipelinestage": "SELECT, INSERT, UPDATE",
+            "sales_lostreason": "SELECT, INSERT, UPDATE",
+            "sales_stagechange": "SELECT, INSERT",
             # Integrations (2.21.0): tokens are revoked in place, never deleted;
             # log rows are only ever added or pruned.
             "integrations_apitoken": "SELECT, INSERT, UPDATE, DELETE",
@@ -555,6 +558,7 @@ class DatabasePrivilegeContractTests(SimpleTestCase):
             "communications_inboundsms",
             "communications_outboundsms",
             "sales_leadassignmenthistory",
+            "sales_stagechange",
             "sales_postalstatushistory",
             "aftersales_aftersaleshistory",
             # The money and stock ledgers. A reversal is another row, so the

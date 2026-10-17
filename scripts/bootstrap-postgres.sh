@@ -686,6 +686,12 @@ FROM (
         -- Post-carrier API connection settings, singleton row — same grant
         -- as its SMS counterpart just above.
         ('sales_postprovidersettings', 'SELECT, INSERT, UPDATE'),
+        -- Lead and campaign-person stages (2.40.57): the two lists a company
+        -- shapes (never deleted, only turned off), and the stage history,
+        -- which is append-only.
+        ('sales_pipelinestage', 'SELECT, INSERT, UPDATE'),
+        ('sales_lostreason', 'SELECT, INSERT, UPDATE'),
+        ('sales_stagechange', 'SELECT, INSERT'),
         -- Person profile (2.20.0). A score snapshot is history (append-only);
         -- the weights are one edited singleton row. A task moves between
         -- states and may be removed by whoever holds `tasks.delete`; a note is

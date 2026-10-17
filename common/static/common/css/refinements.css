@@ -724,7 +724,7 @@ tr.is-leaving > td {
     margin-bottom: 0.35rem;
     border-radius: 1rem;
     background: var(--bs-gray-100);
-    color: var(--bs-gray-600);
+    color: var(--dolphin-text-secondary);
     font-size: 1.5rem;
 }
 .postal-empty-icon i [class^="path"]::before { color: currentColor; }
@@ -781,7 +781,7 @@ tr.is-leaving > td {
 .postal-list-top { display: flex; align-items: center; gap: 0.5rem; }
 .postal-list-number { font-size: 1.05rem; font-weight: 800; color: var(--bs-gray-900); font-variant-numeric: tabular-nums; }
 .postal-list-number:hover { color: var(--bs-primary); }
-.postal-list-date { margin-inline-start: auto; font-size: 0.78rem; color: var(--bs-gray-600); white-space: nowrap; }
+.postal-list-date { margin-inline-start: auto; font-size: 0.78rem; color: var(--dolphin-text-secondary); white-space: nowrap; }
 .postal-list-customer { display: flex; align-items: center; gap: 0.6rem; min-width: 0; }
 /* The first letter of the customer's name, not a picture — this product keeps
    no avatar for a customer, and a stock face would be decoration pretending
@@ -832,9 +832,9 @@ tr.is-leaving > td {
     min-height: 1.5rem;
     margin-bottom: 0.5rem;
 }
-.postal-card-status-caption { font-size: 0.75rem; font-weight: 700; color: var(--bs-gray-600); }
+.postal-card-status-caption { font-size: 0.75rem; font-weight: 700; color: var(--dolphin-text-secondary); }
 .postal-card-status-plain { font-size: 0.8rem; color: var(--bs-gray-700); }
-.postal-card-status-note { display: block; font-size: 0.8rem; color: var(--bs-gray-600); }
+.postal-card-status-note { display: block; font-size: 0.8rem; color: var(--dolphin-text-secondary); }
 
 /* The four stops on one rail (2.40.26, redrawn 2.40.56) — «۴ تا ایکون پست
    سرهم به هم متصل» is now literally one continuous line, filled as far as the
@@ -884,7 +884,7 @@ tr.is-leaving > td {
     border: 3px solid var(--bs-body-bg);
     border-radius: 0.65rem;
     background: var(--bs-gray-200);
-    color: var(--bs-gray-600);
+    color: var(--dolphin-text-secondary);
     box-shadow: 0 0 0 1px var(--bs-gray-300);
     transition: background-color var(--dolphin-dur) var(--dolphin-ease), color var(--dolphin-dur) var(--dolphin-ease), box-shadow var(--dolphin-dur) var(--dolphin-ease), transform var(--dolphin-dur) var(--dolphin-ease);
 }
@@ -895,7 +895,7 @@ tr.is-leaving > td {
     text-align: center;
     font-size: 0.78rem;
     font-weight: 600;
-    color: var(--bs-gray-600);
+    color: var(--dolphin-text-secondary);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -962,7 +962,7 @@ tr.is-leaving > td {
 }
 .postal-pane-icon i [class^="path"]::before { color: currentColor; }
 .postal-pane-titles { display: flex; flex-direction: column; min-width: 0; }
-.postal-pane-label { font-size: 0.78rem; color: var(--bs-gray-600); }
+.postal-pane-label { font-size: 0.78rem; color: var(--dolphin-text-secondary); }
 .postal-pane-number { font-variant-numeric: tabular-nums; letter-spacing: 0.02em; }
 .postal-pane-customer { font-size: 0.9rem; color: var(--bs-gray-700); }
 .postal-pane-tools { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-inline-start: auto; }
@@ -1074,7 +1074,7 @@ tr.is-leaving > td {
 }
 [data-bs-theme=dark] .postal-fact { border-color: var(--bs-border-color); }
 .postal-fact-wide { grid-column: 1 / -1; }
-.postal-fact-label { display: flex; align-items: center; gap: 0.4rem; font-size: 0.78rem; color: var(--bs-gray-600); }
+.postal-fact-label { display: flex; align-items: center; gap: 0.4rem; font-size: 0.78rem; color: var(--dolphin-text-secondary); }
 .postal-fact-label i [class^="path"]::before { color: currentColor; }
 .postal-fact-value { font-size: 0.88rem; font-weight: 600; color: var(--bs-gray-900); line-height: 1.7; overflow-wrap: anywhere; }
 .postal-timeline { list-style: none; margin: 1rem 0 0; padding: 0; display: flex; flex-direction: column; gap: 0.9rem; }

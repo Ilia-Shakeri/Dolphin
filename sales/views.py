@@ -28,7 +28,7 @@ from sales.selectors import customer_categories_for, customers_for, interactions
 from sales.customer_imports import import_customers_from_workbook
 from sales.imports import import_products_from_workbook
 from sales.target_audience_imports import import_target_audience_from_workbook
-from sales.serializers import CancelSaleSerializer, CustomerActivationSerializer, CustomerCategorySerializer, CustomerCategoryTransferSerializer, CustomerImportResultSerializer, ProductActivationSerializer, ProductImportResultSerializer, CustomerPhoneSerializer, CustomerSerializer, InteractionSerializer, LeadAssigneeSerializer, LeadAssignmentHistorySerializer, LeadSerializer, PostalShipmentSerializer, PostalStateSerializer, BulkPostalStatusResultSerializer, BulkPostalStatusTransitionSerializer, PostalStatusHistorySerializer, PostalStatusTransitionSerializer, PostProviderSettingsSerializer, PostProviderSettingsUpdateSerializer, ShipmentChangeSerializer, ShipmentCreateSerializer, ShipmentTermsSerializer, ProductCategorySerializer, ProductSerializer, ReassignSerializer, SaleSerializer, SalesDocumentSerializer, TargetAudienceImportResultSerializer, TargetAudienceMemberSerializer
+from sales.serializers import CancelSaleSerializer, CustomerActivationSerializer, CustomerCategorySerializer, CustomerCategoryTransferSerializer, CustomerImportResultSerializer, ProductActivationSerializer, ProductImportResultSerializer, CustomerPhoneSerializer, CustomerSerializer, InteractionSerializer, LeadAssigneeSerializer, LeadAssignmentHistorySerializer, LeadSerializer, PostalShipmentSerializer, PostalStateSerializer, BulkPostalStatusResultSerializer, BulkPostalStatusTransitionSerializer, PostalStatusHistorySerializer, PostalStatusTransitionSerializer, PostProviderSettingsSerializer, PostProviderSettingsUpdateSerializer, ShipmentChangeSerializer, ShipmentCreateSerializer, StageChangeSerializer, StageMoveSerializer, ShipmentTermsSerializer, ProductCategorySerializer, ProductSerializer, ReassignSerializer, SaleSerializer, SalesDocumentSerializer, TargetAudienceImportResultSerializer, TargetAudienceMemberSerializer
 from sales import ebazar, postal, postal_provider, shipping
 from sales.services import cancel_or_correct_sale, set_customer_category_active, transfer_customer_category, deactivate_customer, set_customer_active, deactivate_customer_phone, deactivate_product, set_product_active, deactivate_product_category, deactivate_sales_document, reactivate_product_category, reassign_lead, transition_postal_status, bulk_transition_postal_status
 
@@ -406,10 +406,11 @@ class LeadViewSet(SensitiveActionThrottleMixin, AdminHardDeleteModelViewSet):
     #: registration-date filter where a person types a bare day.
     #: `assigned_to` is a user profile's «مشتریان و سرنخ‌ها» tab (2.19.0) —
     #: a narrowing of the caller's own `leads_for` scope, never a widening.
-    list_query_parameters = {"status", "follow_up_from", "follow_up_to", "assigned_to", "returned_from"}
+    list_query_parameters = {"status", "stage", "follow_up_from", "follow_up_to", "assigned_to", "returned_from"}
     action_query_parameters = {
         "assignees": {"page"},
         "assignment_history": {"page"},
+        "stage_history": {"page"},
         "work_queue": {"page"},
     }
 
@@ -429,6 +430,14 @@ class LeadViewSet(SensitiveActionThrottleMixin, AdminHardDeleteModelViewSet):
             if status_value not in Lead.Status.values:
                 raise ValidationError({"status": "وضعیت سرنخ را از فهرست انتخاب کنید."})
             queryset = queryset.filter(status=status_value)
+        # One stage of the lead workflow (2.40.57): a key the table holds.
+        stage_value = self.request.query_params.get("stage")
+        if stage_value:
+            from sales.models import PipelineStage
+
+            if not PipelineStage.objects.filter(pipeline="lead", key=stage_value).exists():
+                raise ValidationError({"stage": "مرحلهٔ سرنخ را از فهرست انتخاب کنید."})
+            queryset = queryset.filter(stage=stage_value)
         assigned_to = self.request.query_params.get("assigned_to")
         if assigned_to:
             if not assigned_to.isdigit():
@@ -478,6 +487,27 @@ class LeadViewSet(SensitiveActionThrottleMixin, AdminHardDeleteModelViewSet):
     ])
     def list(self, request, *args, **kwargs):
         return super().list(request, *args, **kwargs)
+
+    @extend_schema(
+        request=StageMoveSerializer, responses={200: LeadSerializer, 400: VALIDATION_ERROR_RESPONSE, 403: ACCESS_DENIED_RESPONSE},
+        description="Moves the lead to another stage (2.40.57). A lost stage needs a reason from the list; leaving a final stage needs a reason.",
+    )
+    @action(detail=True, methods=["post"])
+    def stage(self, request, pk=None):
+        from sales.pipeline import set_lead_stage
+
+        body = StageMoveSerializer(data=request.data)
+        body.is_valid(raise_exception=True)
+        lead = set_lead_stage(actor=request.user, lead=self.get_object(), **body.validated_data)
+        return Response(self.get_serializer(lead).data)
+
+    @extend_schema(responses={200: StageChangeSerializer(many=True), 403: ACCESS_DENIED_RESPONSE})
+    @action(detail=True, methods=["get"], url_path="stage-history")
+    def stage_history(self, request, pk=None):
+        from sales.pipeline import history_for_lead
+
+        page = self.paginate_queryset(history_for_lead(self.get_object()))
+        return self.get_paginated_response(StageChangeSerializer(page, many=True).data)
 
     @extend_schema(
         responses={200: LeadSerializer(many=True), 403: ACCESS_DENIED_RESPONSE},

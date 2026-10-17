@@ -1,7 +1,6 @@
 import {apiRequest} from "dolphin/core/api.js";
 import {toPersianDigits} from "dolphin/core/digits.js";
 import {displayDate, displayDay, localDateTimeValue} from "dolphin/core/jalali.js";
-import {LEAD_STATUS_LABELS} from "dolphin/core/labels.js";
 import {clearMessages, errorText, formPayload, globalMessage, showError, withSubmit} from "dolphin/core/messages.js";
 import {money} from "dolphin/core/money.js";
 import {loadProfileTimeline, loadRecentActivity} from "dolphin/features/customers/profile-activity.js";
@@ -12,6 +11,7 @@ import {bucketLabel} from "dolphin/features/customers/shared.js";
 import {renderAreaChart, setupChartRange} from "dolphin/ui/charts.js";
 import {confirmDialog} from "dolphin/ui/dialogs.js";
 import {loadPerformanceDetails} from "dolphin/ui/performance.js";
+import {stageBadge} from "dolphin/ui/pipeline.js";
 import {reportQuery} from "dolphin/ui/report-wizard.js";
 import {appendCell, appendDetailLink, pageRangeLabel} from "dolphin/ui/table.js";
 
@@ -119,13 +119,9 @@ function userLeadRow(lead) {
     row.appendChild(customerCell);
     appendCell(row, lead.source);
     appendCell(row, lead.campaign_or_batch);
-    const [label, badgeClass] = LEAD_STATUS_LABELS[lead.status] || [lead.status || "—", "badge-light"];
-    const statusCell = document.createElement("td");
-    const badge = document.createElement("span");
-    badge.className = `badge ${badgeClass}`;
-    badge.textContent = label;
-    statusCell.append(badge);
-    row.append(statusCell);
+    const stageCell = document.createElement("td");
+    stageCell.append(stageBadge(lead.stage_display, lead.stage_kind));
+    row.append(stageCell);
     appendCell(row, displayDay(lead.next_follow_up_at));
     appendCell(row, displayDay(lead.assigned_at));
     appendDetailLink(row, `/leads/${lead.id}/`);

@@ -62,6 +62,7 @@ export const PAGES = {
         const module4 = await import("dolphin/features/settings/print-section.js");
         const module5 = await import("dolphin/features/settings/installments-section.js");
         const module6 = await import("dolphin/features/settings/customization-section.js");
+        const module7 = await import("dolphin/features/settings/pipeline-section.js");
         module0.setupSettingsPage();
         module1.setupBackupSection();
         module2.setupScoringSection();
@@ -69,6 +70,7 @@ export const PAGES = {
         module4.setupPrintSection();
         module5.setupInstallmentsSection();
         module6.setupCustomizationSection();
+        module7.setupPipelineSection();
     },
     "sms-provider-settings": async () => (await import("dolphin/features/settings/sms-provider-settings.js")).setupSmsProviderSettings(),
     "post-provider-settings": async () => (await import("dolphin/features/settings/post-provider-settings.js")).setupPostProviderSettings(),

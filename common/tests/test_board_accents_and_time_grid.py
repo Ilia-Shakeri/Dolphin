@@ -57,13 +57,18 @@ def _status_accents():
 
 class BoardColumnAccentTests(SimpleTestCase):
     def test_the_accent_comes_from_the_one_shared_status_table(self):
+        """By default; the lead board passes its stages' own accents (open
+        blue, won green, lost red — `ui/pipeline.js`, 2.40.57), since a
+        company's stages are not in the shared status table."""
         body = _function_body("paintBoardColumns")
-        self.assertIn("STATUS_ACCENTS[status]", body)
+        self.assertIn("accents = STATUS_ACCENTS", body)
+        self.assertIn("accents[status]", body)
         self.assertIn('board.dataset.accent', body)
 
     def test_both_boards_paint_their_columns(self):
         """One call each, not one board remembering and the other forgetting."""
-        self.assertEqual(SCRIPT.count("paintBoardColumns(container, STATUSES);"), 2)
+        self.assertEqual(SCRIPT.count("paintBoardColumns(container, STATUSES"), 2)
+        self.assertIn("stageAccent(stage.kind)", SCRIPT)
 
     def test_every_status_a_board_shows_has_an_accent(self):
         accents = _status_accents()

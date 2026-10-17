@@ -1,26 +1,26 @@
 import {apiRequest} from "dolphin/core/api.js";
 import {toPersianDigits} from "dolphin/core/digits.js";
 import {displayDate} from "dolphin/core/jalali.js";
-import {LEAD_STATUS_LABELS} from "dolphin/core/labels.js";
 import {errorText, globalMessage, showError} from "dolphin/core/messages.js";
 import {boardCardHeader, letCardDetailsLinkThrough, paintBoardColumns, setupBoardColumnSearch} from "dolphin/ui/boards.js";
+import {moveStage, stageAccent, stagesOf} from "dolphin/ui/pipeline.js";
 import {onRealtime} from "dolphin/ui/realtime.js";
 
 /**
- * The leads Kanban board — the same three real `Lead.status` values
- * (`LEAD_STATUS_LABELS` above, the ordinary list's own badge map) as
- * fixed columns, drawn with the theme's own `jkanban` bundle (dragula
- * under it) rather than a hand-rolled drag-and-drop implementation.
+ * The leads Kanban board — one column per stage of the lead workflow
+ * (2.40.57, BIZ-002; `sales.pipeline`, embedded as `#pipeline-config`), in
+ * the workflow's own order, drawn with the theme's own `jkanban` bundle
+ * (dragula under it) rather than a hand-rolled drag-and-drop implementation.
+ * A stage that is turned off shows only while leads still sit in it.
  *
  * Every card comes from `leads_for(user)` through the ordinary
- * `/api/v1/leads/?status=` endpoint, one paginated request per column —
+ * `/api/v1/leads/?stage=` endpoint, one paginated request per column —
  * the same scope and the same rows the list page and the calendar would
- * show for the same reader. Dropping a card into another column PATCHes
- * that same lead through `/api/v1/leads/<id>/`, the very endpoint the
- * calendar's own drag already uses for a different field, so this adds
- * no new mutation path: `LeadSerializer.update` -> `sales.services.
- * update_lead` still validates the status, still locks the actor, still
- * refuses a sales agent a lead outside their own scope.
+ * show for the same reader. Dropping a card into another column is the
+ * lead's own `stage/` action, the same one the detail page uses: a lost
+ * stage asks for its reason and leaving a final stage for why, through the
+ * shared dialog, and `sales.pipeline.set_lead_stage` checks every rule,
+ * locks the actor and refuses a sales agent a lead that is not theirs.
  */
 export async function setupLeadBoard() {
     const container = document.getElementById("lead-board");
@@ -30,16 +30,17 @@ export async function setupLeadBoard() {
     const errorNode = document.getElementById("lead-board-error");
     const canManage = container.dataset.canManageLeads === "true";
 
-    // pending/completed/cancelled, same order `LEAD_STATUS_LABELS` and
-    // the calendar legend already use.
-    const STATUSES = Object.keys(LEAD_STATUS_LABELS);
+    // The workflow's stages in their order; a column is a stage key.
+    const STAGES = stagesOf("lead");
+    const LABELS = Object.fromEntries(STAGES.map((stage) => [stage.key, stage.label]));
+    let STATUSES = STAGES.map((stage) => stage.key);
     // Where the next page for each column's own "load more" comes from,
     // and whether that column has anything at all — kept outside jKanban
     // itself, which has no paging concept of its own.
     const pageState = {};
 
     function boardTitle(status, count) {
-        const [label] = LEAD_STATUS_LABELS[status];
+        const label = LABELS[status] || status;
         const wrap = document.createElement("div");
         wrap.className = "d-flex align-items-center gap-2";
         const text = document.createElement("span");
@@ -151,14 +152,14 @@ export async function setupLeadBoard() {
         empty.className = "not-draggable lead-board-empty text-center fs-8 py-6";
         empty.textContent = pageState[status]?.search
             ? "سرنخی با این جست‌وجو در این ستون نیست."
-            : "سرنخی در این وضعیت نیست.";
+            : "سرنخی در این مرحله نیست.";
         drag.append(empty);
     }
 
     function columnUrl(status, page) {
         const term = pageState[status]?.search;
         const search = term ? `&search=${encodeURIComponent(term)}` : "";
-        return `/api/v1/leads/?status=${status}&ordering=-created_at&page=${page}${search}`;
+        return `/api/v1/leads/?stage=${encodeURIComponent(status)}&ordering=-created_at&page=${page}${search}`;
     }
 
     async function loadMore(status) {
@@ -208,23 +209,23 @@ export async function setupLeadBoard() {
     errorNode.hidden = true;
     container.hidden = true;
     try {
-        const pages = await Promise.all(
-            STATUSES.map((status) =>
-                apiRequest(`/api/v1/leads/?status=${status}&ordering=-created_at&page=1`),
-            ),
-        );
+        const pages = await Promise.all(STATUSES.map((status) => apiRequest(columnUrl(status, 1))));
         loading.hidden = true;
         container.hidden = false;
 
-        const boards = STATUSES.map((status, index) => {
-            const data = pages[index];
+        // A stage that is turned off keeps a column only while leads sit in it.
+        const shown = STAGES.map((stage, index) => [stage, pages[index]])
+            .filter(([stage, data]) => stage.is_active || data.count > 0);
+        STATUSES = shown.map(([stage]) => stage.key);
+        const boards = shown.map(([stage, data]) => {
+            const status = stage.key;
             pageState[status] = {next: data.next};
             counts[status] = data.count;
-            // No `dragTo` restriction: nothing in `_validate_lead_status`
-            // (sales/services.py) restricts which of the three statuses a
-            // lead may move to from which, so every column accepts a drop
-            // from every other one — jKanban's own default when `dragTo`
-            // is left unset.
+            // No `dragTo` restriction: skipping stages is allowed (product
+            // owner, 2026-10-17), so every column accepts a drop from every
+            // other one — jKanban's own default when `dragTo` is left unset.
+            // What a move needs beyond that, the dialog asks and the server
+            // decides.
             return {
                 id: status,
                 title: boardTitle(status, data.count),
@@ -265,11 +266,19 @@ export async function setupLeadBoard() {
                 const fromStatus = source.parentNode.dataset.id;
                 if (toStatus === fromStatus) return;
                 try {
-                    await apiRequest(`/api/v1/leads/${leadId}/`, {
-                        method: "PATCH",
-                        body: {status: toStatus},
+                    const moved = await moveStage({
+                        url: `/api/v1/leads/${leadId}/stage/`, pipeline: "lead",
+                        current: fromStatus, target: toStatus,
+                        name: el.querySelector(".kanban-card-title")?.textContent?.trim() || "",
                     });
-                    globalMessage("وضعیت سرنخ به‌روزرسانی شد.", true);
+                    if (!moved) {
+                        // The reader closed the dialog: the card goes back.
+                        source.append(el);
+                        renderEmptyState(fromStatus);
+                        renderEmptyState(toStatus);
+                        return;
+                    }
+                    globalMessage("مرحلهٔ سرنخ ثبت شد.", true);
                     updateBoardCount(fromStatus, -1);
                     updateBoardCount(toStatus, 1);
                     renderEmptyState(fromStatus);
@@ -289,7 +298,7 @@ export async function setupLeadBoard() {
             },
         });
 
-        paintBoardColumns(container, STATUSES);
+        paintBoardColumns(container, STATUSES, Object.fromEntries(STAGES.map((stage) => [stage.key, stageAccent(stage.kind)])));
 
         STATUSES.forEach((status) => {
             // A fixed number of cards shows before a column scrolls

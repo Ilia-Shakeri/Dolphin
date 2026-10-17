@@ -95,10 +95,10 @@ export function letCardDetailsLinkThrough(container) {
     }, true);
 }
 
-export function paintBoardColumns(container, statuses) {
+export function paintBoardColumns(container, statuses, accents = STATUS_ACCENTS) {
     statuses.forEach((status) => {
         const board = container.querySelector(`.kanban-board[data-id="${status}"]`);
-        if (board) board.dataset.accent = STATUS_ACCENTS[status] || "secondary";
+        if (board) board.dataset.accent = accents[status] || "secondary";
     });
 }
 

@@ -269,8 +269,50 @@ class ProductSerializer(RejectServerFieldsMixin, serializers.ModelSerializer):
         return update_product(actor=self.context["request"].user, product=instance, **validated_data)
 
 
+def _stage_names(context, pipeline_key):
+    """Stage and lost-reason names, read once per response (2.40.57)."""
+    cache = context.setdefault("_pipeline_names", {})
+    if pipeline_key not in cache:
+        from sales.models import LostReason, PipelineStage
+
+        cache[pipeline_key] = (
+            {key: (label, kind) for key, label, kind in
+             PipelineStage.objects.filter(pipeline=pipeline_key).values_list("key", "label", "kind")},
+            dict(LostReason.objects.values_list("key", "label")),
+        )
+    return cache[pipeline_key]
+
+
+def stage_name(context, pipeline_key, key):
+    return _stage_names(context, pipeline_key)[0].get(key, (key, "open"))[0]
+
+
+def stage_kind(context, pipeline_key, key):
+    return _stage_names(context, pipeline_key)[0].get(key, (key, "open"))[1]
+
+
+def lost_reason_name(context, pipeline_key, key):
+    return _stage_names(context, pipeline_key)[1].get(key, key) if key else ""
+
+
+class StageChangeSerializer(serializers.Serializer):
+    """One row of a lead's or a campaign person's stage history."""
+
+    def to_representation(self, instance):
+        from sales.pipeline import serialize_change
+
+        return serialize_change(instance)
+
+
+class StageMoveSerializer(serializers.Serializer):
+    stage = serializers.CharField(max_length=40)
+    lost_reason = serializers.CharField(required=False, allow_blank=True, max_length=40)
+    note = serializers.CharField(required=False, allow_blank=True, max_length=300)
+    reason = serializers.CharField(required=False, allow_blank=True, max_length=500)
+
+
 class LeadSerializer(RejectServerFieldsMixin, serializers.ModelSerializer):
-    server_fields = {"customer_name", "assigned_to", "assigned_to_display", "campaign_display", "assigned_by", "assigned_at", "returned_from", "closed_at", "created_by", "source_payload", "created_at", "updated_at"}
+    server_fields = {"customer_name", "assigned_to", "assigned_to_display", "campaign_display", "assigned_by", "assigned_at", "returned_from", "closed_at", "created_by", "source_payload", "created_at", "updated_at", "status", "stage_display", "stage_kind", "lost_reason_key", "lost_reason", "lost_reason_label", "stage_changed_at"}
     created_by = serializers.PrimaryKeyRelatedField(read_only=True)
     assigned_to = serializers.PrimaryKeyRelatedField(read_only=True)
     assigned_by = serializers.PrimaryKeyRelatedField(read_only=True)
@@ -286,11 +328,28 @@ class LeadSerializer(RejectServerFieldsMixin, serializers.ModelSerializer):
     #: Who a new lead goes to (2.40.35): left out or empty, it is shared out
     #: evenly among the campaign's responsibles; a user id is a manual choice.
     assign_to = serializers.IntegerField(write_only=True, required=False, allow_null=True, min_value=1)
+    #: 2.40.57: written only when a lead is made (an open stage to start in);
+    #: after that a stage moves through `leads/<id>/stage/`, which keeps the
+    #: history. `status` follows the stage and is never written.
+    stage = serializers.CharField(required=False, max_length=40)
+    stage_display = serializers.SerializerMethodField()
+    #: open / won / lost, so any list can colour the stage without the table.
+    stage_kind = serializers.SerializerMethodField()
+    lost_reason_label = serializers.SerializerMethodField()
 
     class Meta:
         model = Lead
-        fields = ["id", "customer", "customer_name", "source", "campaign_or_batch", "interested_product", "status", "assigned_to", "assigned_to_display", "assign_to", "assigned_by", "assigned_at", "returned_from", "next_follow_up_at", "closed_at", "created_by", "notes", "source_payload", "campaign_display", "created_at", "updated_at"]
-        read_only_fields = ["id", "customer_name", "assigned_to", "assigned_to_display", "campaign_display", "assigned_by", "assigned_at", "returned_from", "closed_at", "created_by", "source_payload", "created_at", "updated_at"]
+        fields = ["id", "customer", "customer_name", "source", "campaign_or_batch", "interested_product", "status", "stage", "stage_display", "stage_kind", "lost_reason_key", "lost_reason", "lost_reason_label", "stage_changed_at", "assigned_to", "assigned_to_display", "assign_to", "assigned_by", "assigned_at", "returned_from", "next_follow_up_at", "closed_at", "created_by", "notes", "source_payload", "campaign_display", "created_at", "updated_at"]
+        read_only_fields = ["id", "customer_name", "status", "stage_display", "stage_kind", "lost_reason_key", "lost_reason", "lost_reason_label", "stage_changed_at", "assigned_to", "assigned_to_display", "campaign_display", "assigned_by", "assigned_at", "returned_from", "closed_at", "created_by", "source_payload", "created_at", "updated_at"]
+
+    def get_stage_display(self, instance) -> str:
+        return stage_name(self.context, "lead", instance.stage)
+
+    def get_stage_kind(self, instance) -> str:
+        return stage_kind(self.context, "lead", instance.stage)
+
+    def get_lost_reason_label(self, instance) -> str:
+        return lost_reason_name(self.context, "lead", instance.lost_reason_key)
 
     def get_campaign_display(self, instance) -> str:
         campaign = instance.campaign
@@ -345,6 +404,8 @@ class LeadSerializer(RejectServerFieldsMixin, serializers.ModelSerializer):
         attrs = super().validate(attrs)
         if self.instance and "customer" in attrs and attrs["customer"] != self.instance.customer:
             raise serializers.ValidationError({"customer": "مشتری سرنخ قابل تغییر نیست."})
+        if self.instance and "stage" in attrs:
+            raise serializers.ValidationError({"stage": "مرحلهٔ سرنخ را با «تغییر مرحله» عوض کنید تا در تاریخچه بماند."})
         product = attrs.get("interested_product")
         if product and not product.is_active:
             raise serializers.ValidationError({"interested_product": "کالا غیرفعال است."})

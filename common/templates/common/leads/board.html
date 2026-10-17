@@ -13,21 +13,21 @@
 <link rel="stylesheet" href="{% static 'common/ui/plugins/jkanban/jkanban.bundle.rtl.css' %}?v={{ dolphin_version }}">
 {% endblock %}
 {% block content %}
-{% comment %} همان سرنخ‌هایی که فهرست نشان می‌دهد، فقط ستون‌بندی‌شده به‌جای جدول.
-   وضعیت‌ها دقیقاً سه مقدار واقعی مدل هستند (sales.Lead.Status) — چیزی این‌جا
-   اختراع نشده. کشیدن یک کارت به ستون دیگر همان PATCH فهرست و تقویم را می‌زند،
-   پس دامنه و مجوز دقیقاً همان‌هاست. {% endcomment %}
+{% comment %} همان سرنخ‌هایی که فهرست نشان می‌دهد، فقط ستون‌بندی‌شده به‌جای جدول: هر
+   ستون یک مرحله از گردش کار سرنخ (۲.۴۰.۵۷، `sales.pipeline`). کشیدن یک کارت به ستون
+   دیگر همان «تغییر مرحله»ی صفحهٔ جزئیات است، با همان دامنه، مجوز و تاریخچه. {% endcomment %}
 <section class="card mb-5 mb-xl-8"><div class="card-body">
     <div class="d-flex flex-wrap flex-stack align-items-center mb-4">
         <div>
-            <h2 class="fs-3 fw-bold text-gray-900 mb-1">سرنخ‌ها بر اساس وضعیت</h2>
-            <p class="text-muted fs-7 mb-0">هر کارت یک سرنخ در محدودهٔ دسترسی شماست — همان محدوده‌ای که فهرست سرنخ‌ها نشان می‌دهد. برای دیدن جزئیات کامل کلیک کنید؛ برای تغییر وضعیت، کارت را به ستون دیگری بکشید.</p>
+            <h2 class="fs-3 fw-bold text-gray-900 mb-1">سرنخ‌ها بر اساس مرحله</h2>
+            <p class="text-muted fs-7 mb-0">هر کارت یک سرنخ در محدودهٔ دسترسی شماست — همان محدوده‌ای که فهرست سرنخ‌ها نشان می‌دهد. برای دیدن جزئیات کامل کلیک کنید؛ برای تغییر مرحله، کارت را به ستون دیگری بکشید.</p>
         </div>
     </div>
     <div id="lead-board-loading" class="text-center text-gray-700 py-10">در حال دریافت سرنخ‌ها…</div>
     <div id="lead-board-error" class="text-center text-danger py-10" role="alert" hidden>سرنخ‌ها دریافت نشدند.</div>
     <div id="lead-board" data-can-manage-leads="{% if 'leads.manage' in capabilities %}true{% else %}false{% endif %}" hidden></div>
 </div></section>
+{% include "common/includes/stage_change_dialog.inc" %}
 {% endblock %}
 {% block extra_scripts %}
 <script src="{% static 'common/ui/plugins/jkanban/jkanban.bundle.js' %}?v={{ dolphin_version }}"></script>

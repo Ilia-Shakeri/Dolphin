@@ -7,6 +7,7 @@ import {campaignStatusBadge} from "dolphin/features/campaigns/campaigns.js";
 import {enhanceChecklistSelect} from "dolphin/ui/checklist-select.js";
 import {setupPagedList} from "dolphin/ui/lists.js";
 import {liveRecord} from "dolphin/ui/live-record.js";
+import {fillStageSelect, moveStage, stageBadge, stageOf} from "dolphin/ui/pipeline.js";
 import {appendCell} from "dolphin/ui/table.js";
 import {setupOtherChannels} from "dolphin/features/campaigns/other-channels.js";
 
@@ -17,8 +18,6 @@ const NEXT_STATUS = {
     finished: [["active", "بازگشایی", "btn-light-primary"], ["archived", "بایگانی", "btn-light"]],
     archived: [],
 };
-
-const STAGE_CHOICES = [["new", "جدید"], ["contacted", "تماس گرفته‌شده"], ["engaged", "در تعامل"], ["lost", "ازدست‌رفته"]];
 
 export function setupCampaignDetail() {
     const id = document.body.dataset.campaignId;
@@ -87,44 +86,41 @@ export function setupCampaignDetail() {
     }
 
     // --- members -------------------------------------------------------
-    const lostDialog = document.getElementById("member-lost-dialog");
-    const lostForm = document.getElementById("member-lost-form");
-    let lostFor = null;
-
-    async function changeStage(member, stage, lostReason = "") {
-        await apiRequest(`/api/v1/campaign-members/${member.id}/stage/`, {method: "POST", body: {stage, lost_reason: lostReason}});
-        members?.load();
-    }
-
+    // Stages come from the campaign workflow (2.40.57, `sales.pipeline`); a
+    // stage only an invoice reaches («تبدیل‌شده») is shown, never offered.
     function memberRow(member) {
         const row = document.createElement("tr");
         appendCell(row, member.full_name);
         appendCell(row, toPersianDigits(member.raw_phone)).dir = "ltr";
         const stageCell = document.createElement("td");
-        if (member.stage === "converted") {
-            stageCell.append(campaignStatusBadge("active", member.stage_display));
+        const current = stageOf("campaign", member.stage);
+        if (current && !current.manual) {
+            stageCell.append(stageBadge(member.stage_display, member.stage_kind));
         } else {
             const select = document.createElement("select");
             select.className = "form-select form-select-sm form-select-solid w-175px";
             select.setAttribute("aria-label", `مرحلهٔ ${member.full_name}`);
-            STAGE_CHOICES.forEach(([value, label]) => select.append(new Option(label, value, false, value === member.stage)));
+            fillStageSelect(select, "campaign", {only: (stage) => stage.manual, keep: [member.stage]});
+            select.value = member.stage;
             select.addEventListener("change", async () => {
-                if (select.value === "lost") {
-                    lostFor = member;
-                    select.value = member.stage;
-                    lostForm.reset();
-                    clearMessages(lostForm);
-                    lostDialog.showModal();
-                    return;
-                }
-                try { await changeStage(member, select.value); } catch (error) { select.value = member.stage; showError(error); }
+                try {
+                    const moved = await moveStage({
+                        url: `/api/v1/campaign-members/${member.id}/stage/`, pipeline: "campaign",
+                        current: member.stage, target: select.value, name: member.full_name,
+                    });
+                    if (!moved) { select.value = member.stage; return; }
+                    globalMessage("مرحلهٔ مخاطب ثبت شد.", true);
+                    members?.load();
+                } catch (error) { select.value = member.stage; showError(error); }
             });
             stageCell.append(select);
         }
         row.append(stageCell);
         appendCell(row, member.assigned_to_display);
         const note = document.createElement("td");
-        note.textContent = member.was_customer_on_entry ? "از قبل مشتری بوده" : (member.lost_reason || "");
+        note.textContent = member.was_customer_on_entry
+            ? "از قبل مشتری بوده"
+            : [member.lost_reason_label, member.lost_reason].filter(Boolean).join(" — ");
         if (member.status !== "customer" && member.stage !== "lost") {
             const button = document.createElement("button");
             button.type = "button";
@@ -142,15 +138,6 @@ export function setupCampaignDetail() {
         row.append(note);
         return row;
     }
-
-    lostDialog?.querySelectorAll("[data-close-dialog]").forEach((button) => button.addEventListener("click", () => lostDialog.close()));
-    lostForm?.addEventListener("submit", (event) => {
-        event.preventDefault();
-        withSubmit(lostForm, async () => {
-            await changeStage(lostFor, "lost", lostForm.elements.lost_reason.value);
-            lostDialog.close();
-        });
-    });
 
     members = setupPagedList({
         key: "campaign-members",

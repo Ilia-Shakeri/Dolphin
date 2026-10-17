@@ -15,7 +15,8 @@ from auditlog.services import log_activity
 from common.exceptions import BusinessConflictError, BusinessPermissionDenied, BusinessRuleError
 from common.phones import normalize_customer_phone
 from sales.customer_backfill import clean_label, normalize_label
-from sales.models import CAMPAIGN_NAME_MAX_LENGTH, Campaign, Customer, Lead, TargetAudienceMember
+from sales.models import CAMPAIGN_NAME_MAX_LENGTH, Campaign, Customer, Lead, StageChange, TargetAudienceMember
+from sales.pipeline import record_system_move
 from sales.services import (
     ELEVATED_OPERATORS,
     create_customer_with_phone,
@@ -44,12 +45,6 @@ STATUS_TRANSITIONS = {
 CAMPAIGN_EDITABLE = {"name", "channels", "other_channels", "starts_on", "ends_on", "target_count", "budget", "responsibles"}
 OTHER_CHANNEL_MAX_LENGTH = 60
 OTHER_CHANNEL_MAX_COUNT = 10
-MEMBER_STAGES_SETTABLE = {
-    TargetAudienceMember.Stage.NEW,
-    TargetAudienceMember.Stage.CONTACTED,
-    TargetAudienceMember.Stage.ENGAGED,
-    TargetAudienceMember.Stage.LOST,
-}
 
 
 def _require_manager(actor):
@@ -398,40 +393,18 @@ def assign_campaign_member(*, actor, member, to_user, reason=""):
     return locked
 
 
-@transaction.atomic
-def set_member_stage(*, actor, member, stage, lost_reason=""):
-    """Move a person between the stages a person may set by hand.
-
-    `converted` is never typed in: it follows a valid attributed invoice.
-    """
-    actor = _lock_operational_actor(actor)
-    locked = TargetAudienceMember.objects.select_for_update().get(pk=member.pk)
-    if actor.role == User.Role.SALES_AGENT and locked.assigned_to_id != actor.pk:
-        raise BusinessPermissionDenied("این مخاطب خارج از دسترسی شماست.")
-    if stage not in MEMBER_STAGES_SETTABLE:
-        raise BusinessRuleError({"stage": "این مرحله به‌صورت دستی قابل تنظیم نیست."})
-    if locked.stage == TargetAudienceMember.Stage.CONVERTED:
-        raise BusinessConflictError({"stage": "مخاطب تبدیل‌شده با فاکتور معتبر است و مرحله‌اش دستی تغییر نمی‌کند."})
-    if stage == TargetAudienceMember.Stage.LOST and not str(lost_reason).strip():
-        raise BusinessRuleError({"lost_reason": "دلیل ازدست‌رفتن را بنویسید."})
-    previous = locked.stage
-    locked.stage = stage
-    locked.lost_reason = str(lost_reason).strip()[:300] if stage == TargetAudienceMember.Stage.LOST else ""
-    locked.updated_by = actor
-    locked.save(update_fields=["stage", "lost_reason", "updated_by", "updated_at"])
-    log_activity(
-        actor=actor, operation="campaign_member.stage_changed", instance=locked,
-        changes={"from": previous, "to": stage},
-    )
-    return locked
-
-
 def advance_stage_on_contact(member):
     """A first logged interaction moves a brand-new person to «تماس گرفته‌شده».
 
     Never moves anyone backwards, and never touches a converted or lost one.
+    The move is in the person's stage history (2.40.57).
     """
     if member is not None and member.stage == TargetAudienceMember.Stage.NEW:
-        TargetAudienceMember.objects.filter(pk=member.pk, stage=TargetAudienceMember.Stage.NEW).update(
+        moved = TargetAudienceMember.objects.filter(pk=member.pk, stage=TargetAudienceMember.Stage.NEW).update(
             stage=TargetAudienceMember.Stage.CONTACTED, updated_at=timezone.now()
         )
+        if moved:
+            record_system_move(
+                member=member, from_key=TargetAudienceMember.Stage.NEW, to_key=TargetAudienceMember.Stage.CONTACTED,
+                source=StageChange.Source.CONTACT,
+            )

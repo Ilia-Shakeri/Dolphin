@@ -80,6 +80,8 @@ SELECT (
     AND to_regclass('public.sales_interaction') IS NOT NULL
     AND to_regclass('public.sales_lead') IS NOT NULL
     AND to_regclass('public.sales_leadassignmenthistory') IS NOT NULL
+    AND to_regclass('public.sales_lostreason') IS NOT NULL
+    AND to_regclass('public.sales_pipelinestage') IS NOT NULL
     AND to_regclass('public.sales_postalshipment') IS NOT NULL
     AND to_regclass('public.sales_postalstatushistory') IS NOT NULL
     AND to_regclass('public.sales_postprovidersettings') IS NOT NULL
@@ -88,6 +90,7 @@ SELECT (
     AND to_regclass('public.sales_sale') IS NOT NULL
     AND to_regclass('public.sales_salesdocument') IS NOT NULL
     AND to_regclass('public.sales_salestarget') IS NOT NULL
+    AND to_regclass('public.sales_stagechange') IS NOT NULL
     AND to_regclass('public.sales_targetaudiencemember') IS NOT NULL
     AND to_regclass('public.scoring_personscore') IS NOT NULL
     AND to_regclass('public.scoring_scoringsettings') IS NOT NULL
@@ -99,7 +102,7 @@ SELECT (
     AND to_regclass('public.telephony_originaterequest') IS NOT NULL
     AND to_regclass('public.timeline_personnote') IS NOT NULL
     AND to_regclass('public.timeline_timelineentry') IS NOT NULL
-    -- Every migration this release ships (125), recorded.
+    -- Every migration this release ships (127), recorded.
     AND NOT EXISTS (
         SELECT 1
         FROM (
@@ -223,6 +226,8 @@ SELECT (
                 ('sales', '0034_sales_target'),
                 ('sales', '0035_returned_work'),
                 ('sales', '0036_custom_fields'),
+                ('sales', '0037_pipeline_stages'),
+                ('sales', '0038_seed_pipeline_stages'),
                 ('scoring', '0001_initial'),
                 ('sessions', '0001_initial'),
                 ('tasks', '0001_initial'),
@@ -237,7 +242,7 @@ SELECT (
               AND django_migrations.name = required_migration.name
         )
     )
-    -- Every named check and unique constraint (262).
+    -- Every named check and unique constraint (274).
     AND NOT EXISTS (
         SELECT 1
         FROM (
@@ -462,6 +467,15 @@ SELECT (
                 ('sales_interaction', 'interaction_names_someone'),
                 ('sales_interaction', 'interaction_outcome_nonblank'),
                 ('sales_lead', 'lead_assignment_fields_consistent'),
+                ('sales_lead', 'lead_stage_key_shape'),
+                ('sales_lostreason', 'lost_reason_key_shape'),
+                ('sales_lostreason', 'lost_reason_label_nonblank'),
+                ('sales_pipelinestage', 'pipeline_stage_final_is_system'),
+                ('sales_pipelinestage', 'pipeline_stage_key_shape'),
+                ('sales_pipelinestage', 'pipeline_stage_kind_valid'),
+                ('sales_pipelinestage', 'pipeline_stage_label_nonblank'),
+                ('sales_pipelinestage', 'pipeline_stage_pipeline_valid'),
+                ('sales_pipelinestage', 'uniq_pipeline_stage_key'),
                 ('sales_postalstatushistory', 'postal_history_to_status_nonblank'),
                 ('sales_product', 'product_barcode_shape'),
                 ('sales_product', 'product_price_positive'),
@@ -480,9 +494,12 @@ SELECT (
                 ('sales_salestarget', 'sales_target_amount_positive'),
                 ('sales_salestarget', 'sales_target_month_range'),
                 ('sales_salestarget', 'uniq_sales_target_user_month'),
+                ('sales_stagechange', 'stage_change_names_one_record'),
+                ('sales_stagechange', 'stage_change_reopen_has_reason'),
+                ('sales_stagechange', 'stage_change_source_valid'),
                 ('sales_targetaudiencemember', 'target_member_name_nonblank'),
                 ('sales_targetaudiencemember', 'target_member_phone_shape'),
-                ('sales_targetaudiencemember', 'target_member_stage_valid'),
+                ('sales_targetaudiencemember', 'target_member_stage_key_shape'),
                 ('sales_targetaudiencemember', 'target_member_status_valid'),
                 ('sales_targetaudiencemember', 'uniq_member_campaign_phone'),
                 ('scoring_personscore', 'person_score_at_most_100'),

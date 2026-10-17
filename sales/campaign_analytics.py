@@ -22,6 +22,7 @@ from accounts.access import has_any_capability
 from accounts.models import User
 from sales.campaigns import channel_labels
 from sales.models import Campaign, CampaignAttribution, Interaction, Sale, TargetAudienceMember
+from sales.pipeline import CAMPAIGN, stages
 
 ZERO = Decimal("0.00")
 
@@ -124,6 +125,7 @@ def campaign_rows(user, *, ids=None, date_from=None, date_to=None, with_money=Tr
         ):
             sales[row["lead__campaign_id"]] = row
     rows = []
+    stage_keys = [stage.key for stage in stages(CAMPAIGN)]
     for campaign in campaigns:
         counts = stage_counts[campaign.pk]
         total = sum(counts.values())
@@ -144,7 +146,8 @@ def campaign_rows(user, *, ids=None, date_from=None, date_to=None, with_money=Tr
             "ends_on": campaign.ends_on,
             "target_count": campaign.target_count,
             "members": total,
-            "stages": {stage: counts.get(stage, 0) for stage in TargetAudienceMember.Stage.values},
+            # Every stage of the campaign workflow, a company's own included (2.40.57).
+            "stages": {key: counts.get(key, 0) for key in stage_keys},
             "contacted": reached,
             "engaged": engaged,
             "converted": converted,
@@ -192,7 +195,7 @@ def unattributed_row(user, *, date_from=None, date_to=None):
         "id": None, "parent_id": None, "name": "بدون کمپین", "status": "", "status_display": "—",
         "channels": [], "channels_display": [], "channel_display": "—", "is_system": True,
         "starts_on": None, "ends_on": None, "target_count": None, "members": 0,
-        "stages": {stage: 0 for stage in TargetAudienceMember.Stage.values}, "contacted": 0, "engaged": 0,
+        "stages": {stage.key: 0 for stage in stages(CAMPAIGN)}, "contacted": 0, "engaged": 0,
         "converted": 0, "already_customers": 0, "conversion_rate": None, "target_progress": None,
         "children_count": 0, "registered_sales_count": 0, "registered_sales_amount": ZERO,
         "valid_invoices_count": totals["n"], "valid_invoices_amount": totals["amount"],

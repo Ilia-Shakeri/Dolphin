@@ -350,11 +350,11 @@ class ChartFilterBehaviourTests(TestCase):
 
     def test_a_filter_with_no_values_is_dropped_rather_than_drawn_empty(self):
         offered = {entry["param"] for entry in filters_for("leads", self.manager)}
-        # No lead has a source or an assignee yet; status is a fixed
-        # vocabulary and is always offered.
+        # No lead has a source or an assignee yet; the stage list (2.40.57) is
+        # the company's own workflow and is always offered.
         self.assertNotIn("assigned_to", offered)
         self.assertNotIn("source", offered)
-        self.assertIn("status", offered)
+        self.assertIn("stage", offered)
 
     def test_a_chart_with_no_declared_filters_offers_none(self):
         self.assertEqual(filters_for("products", self.manager), [])

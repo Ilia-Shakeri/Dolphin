@@ -42,7 +42,7 @@ from reports.ranges import (
     granularity_for,
     local_bucket_starts,
 )
-from sales.models import Interaction, Lead, Sale
+from sales.models import Interaction, Sale
 from sales.selectors import (
     interactions_for,
     leads_for,
@@ -272,13 +272,23 @@ def categories_by_active_products(actor, narrow=None):
     return _counted([(row["name"], row["total"]) for row in rows])
 
 
-def leads_by_status(actor, narrow=None):
-    labels = {
-        Lead.Status.PENDING: "در انتظار",
-        Lead.Status.COMPLETED: "تکمیل‌شده",
-        Lead.Status.CANCELLED: "لغوشده",
-    }
-    return _counted(_grouped_count(_narrowed(leads_for, actor, narrow), "status"), labels)
+def leads_by_stage(actor, narrow=None):
+    """By the lead's stage (2.40.57, BIZ-002), named as the company named it."""
+    from sales.pipeline import LEAD, stages
+
+    labels = {stage.key: stage.label for stage in stages(LEAD)}
+    return _counted(_grouped_count(_narrowed(leads_for, actor, narrow), "stage"), labels)
+
+
+def _stage_options(pipeline):
+    """The workflow's stages in their order — the company's own table."""
+
+    def build(_queryset):
+        from sales.pipeline import stages
+
+        return [{"value": stage.key, "label": stage.label} for stage in stages(pipeline)]
+
+    return build
 
 
 def after_sales_by_status(actor, narrow=None):
@@ -356,7 +366,7 @@ LIST_CHARTS = {
     "product-categories": ("products", ("products.read", "products.manage"),
                            categories_by_active_products, "محصول فعال در هر دسته‌بندی"),
     "leads": ("leads", ("leads.scoped", "leads.company"),
-              leads_by_status, "تعداد سرنخ به تفکیک وضعیت"),
+              leads_by_stage, "تعداد سرنخ به تفکیک مرحله"),
     "after-sales": ("after_sales", ("after_sales.assigned", "after_sales.company", "after_sales.manage"),
                     after_sales_by_status, "تعداد درخواست به تفکیک وضعیت"),
     "sales-documents": ("sales_documents", ("sales_documents.company", "sales_documents.manage"),
@@ -466,12 +476,7 @@ CHART_FILTERS = {
     "leads": (
         ChartFilter("assigned_to", "بازاریاب", "همهٔ بازاریاب‌ها", "assigned_to_id",
                     _related_options("assigned_to_id", "assigned_to__username")),
-        ChartFilter("status", "وضعیت", "همهٔ وضعیت‌ها", "status",
-                    _choice_options(Lead.Status.choices, {
-                        Lead.Status.PENDING: "در انتظار",
-                        Lead.Status.COMPLETED: "تکمیل‌شده",
-                        Lead.Status.CANCELLED: "لغوشده",
-                    })),
+        ChartFilter("stage", "مرحله", "همهٔ مرحله‌ها", "stage", _stage_options("lead")),
         ChartFilter("source", "منبع سرنخ", "همهٔ منبع‌ها", "source",
                     _text_options("source")),
     ),

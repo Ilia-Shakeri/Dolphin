@@ -4,6 +4,7 @@ import {apiDateTime, displayDate, localDateTimeValue} from "dolphin/core/jalali.
 import {clearMessages, formPayload, globalMessage, showError, withSubmit} from "dolphin/core/messages.js";
 import {fillSelect, loadAllPages} from "dolphin/ui/lists.js";
 import {liveRecord} from "dolphin/ui/live-record.js";
+import {historyLine, moveStage, stageBadge} from "dolphin/ui/pipeline.js";
 import {appendCell, pageRangeLabel} from "dolphin/ui/table.js";
 
 export async function setupLeadDetail() {
@@ -14,11 +15,55 @@ export async function setupLeadDetail() {
     const editForm = document.getElementById("edit-lead-form");
     let lead;
     let historyPage = 1;
+    let stageHistoryPage = 1;
     let targetAudiencePage = 1;
 
     // Live (2.40.41): the lead and its history redraw in place when it
     // changes elsewhere.
-    const settle = liveRecord({read: () => apiRequest(endpoint), draw: async (value) => { lead = value; fillLead(value); await loadHistory(historyPage); }});
+    const settle = liveRecord({read: () => apiRequest(endpoint), draw: async (value) => {
+        lead = value; fillLead(value); await loadHistory(historyPage); await loadStageHistory(stageHistoryPage);
+    }});
+
+    /** The stage card (2.40.57): the stage, and why it was lost. */
+    function fillStage(value) {
+        document.getElementById("lead-stage-badge").replaceChildren(stageBadge(value.stage_display, value.stage_kind));
+        const detail = [];
+        if (value.lost_reason_label) detail.push(`دلیل: ${value.lost_reason_label}`);
+        if (value.lost_reason) detail.push(value.lost_reason);
+        if (value.stage_changed_at) detail.push(`از ${displayDate(value.stage_changed_at)}`);
+        document.getElementById("lead-stage-detail").textContent = detail.join(" — ");
+    }
+
+    async function loadStageHistory(page = 1) {
+        const historyLoading = document.getElementById("stage-history-loading");
+        const historyEmpty = document.getElementById("stage-history-empty");
+        const historyWrap = document.getElementById("stage-history-table-wrap");
+        const historyPager = document.getElementById("stage-history-pagination");
+        historyLoading.hidden = false; historyEmpty.hidden = true; historyWrap.hidden = true; historyPager.hidden = true;
+        try {
+            const data = await apiRequest(`${endpoint}stage-history/?page=${page}`);
+            const rows = data.results.map((item) => {
+                const row = document.createElement("tr");
+                appendCell(row, historyLine(item));
+                const why = [];
+                if (item.reopened) why.push(`بازگشایی: ${item.reason}`);
+                if (item.lost_reason_label) why.push(item.lost_reason_label);
+                if (item.note) why.push(item.note);
+                appendCell(row, why.join(" — ") || "—");
+                appendCell(row, item.source === "manual" ? item.actor_display : item.source_display);
+                appendCell(row, displayDate(item.changed_at));
+                return row;
+            });
+            document.getElementById("stage-history-table-body").replaceChildren(...rows);
+            historyLoading.hidden = true;
+            if (!rows.length) { historyEmpty.hidden = false; return; }
+            historyWrap.hidden = false; stageHistoryPage = page;
+            document.getElementById("stage-history-prev").disabled = !data.previous;
+            document.getElementById("stage-history-next").disabled = !data.next;
+            document.getElementById("stage-history-page-label").textContent = pageRangeLabel(data, page);
+            historyPager.hidden = !data.previous && !data.next;
+        } catch (error) { historyLoading.hidden = true; showError(error); }
+    }
 
     function fillLead(value) {
         settle(value);
@@ -26,7 +71,7 @@ export async function setupLeadDetail() {
         // longer on this form: a campaign is worked from its target
         // audience rather than from a single customer.
         document.getElementById("lead-assigned-to").value = value.assigned_to_display || value.assigned_to || "تخصیص نیافته";
-        document.getElementById("edit-lead-status").value = value.status || "pending";
+        fillStage(value);
         document.getElementById("edit-lead-source").value = value.source || "";
         document.getElementById("edit-lead-campaign").value = value.campaign_or_batch || "";
         document.getElementById("lead-campaign-display").value = value.campaign_display || "—";
@@ -109,6 +154,7 @@ export async function setupLeadDetail() {
         // product catalogue is no longer fetched for it either.
         fillLead(lead);
         await loadHistory();
+        await loadStageHistory();
         const reassignForm = document.getElementById("reassign-lead-form");
         if (reassignForm) {
             const assignees = await loadAllPages("/api/v1/leads/assignees/");
@@ -122,7 +168,7 @@ export async function setupLeadDetail() {
         if (!editForm.querySelector("button[type='submit']")) return;
         withSubmit(editForm, async () => {
             const data = new FormData(editForm);
-            const payload = formPayload(editForm, ["source", "campaign_or_batch", "status", "notes"]);
+            const payload = formPayload(editForm, ["source", "campaign_or_batch", "notes"]);
             payload.next_follow_up_at = apiDateTime(data.get("next_follow_up_at"));
             lead = await apiRequest(endpoint, {method: "PATCH", body: payload});
             fillLead(lead); globalMessage("سرنخ ذخیره شد.", true);
@@ -138,6 +184,21 @@ export async function setupLeadDetail() {
         });
     });
     document.getElementById("history-prev").addEventListener("click", () => loadHistory(historyPage - 1));
+    document.getElementById("stage-history-prev").addEventListener("click", () => loadStageHistory(stageHistoryPage - 1));
+    document.getElementById("stage-history-next").addEventListener("click", () => loadStageHistory(stageHistoryPage + 1));
+    document.getElementById("lead-stage-change")?.addEventListener("click", async () => {
+        try {
+            const updated = await moveStage({
+                url: `${endpoint}stage/`, pipeline: "lead", current: lead.stage,
+                name: lead.campaign_display || lead.source || "",
+            });
+            if (!updated) return;
+            lead = updated;
+            fillLead(lead);
+            await loadStageHistory(1);
+            globalMessage("مرحلهٔ سرنخ ثبت شد.", true);
+        } catch (error) { showError(error); }
+    });
     document.getElementById("history-next").addEventListener("click", () => loadHistory(historyPage + 1));
 
     document.getElementById("target-audience-prev")?.addEventListener(

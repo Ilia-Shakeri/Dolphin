@@ -588,7 +588,12 @@ class DolphinCampaignDetailView(ScopedDetailView):
     def get_context_data(self, **kwargs):
         from sales.selectors import customer_owner_choices
 
+        from sales.pipeline import pipeline_payload
+
         context = super().get_context_data(**kwargs)
+        # Both stage workflows and the lost reasons (2.40.57), for the people
+        # list's stage control and its dialog.
+        context["pipeline_config"] = pipeline_payload()
         context["can_manage_campaigns"] = "campaigns.manage" in context["capabilities"]
         if context["can_manage_campaigns"]:
             from sales.models import Campaign
@@ -619,6 +624,10 @@ class DolphinLeadListView(ActiveCrmView):
         from sales.returned_work import can_decide_returned_work
 
         context["can_decide_returned_work"] = can_decide_returned_work(user)
+        from sales.pipeline import pipeline_payload
+
+        # The stage filter and the wizard's starting stage (2.40.57).
+        context["pipeline_config"] = pipeline_payload()
         return context
 
 
@@ -656,6 +665,14 @@ class DolphinLeadBoardView(ActiveCrmView):
     required_feature = "lead_kanban"
     template_name = "common/leads/board.html"
 
+    def get_context_data(self, **kwargs):
+        from sales.pipeline import pipeline_payload
+
+        context = super().get_context_data(**kwargs)
+        # One column per stage of the lead workflow (2.40.57).
+        context["pipeline_config"] = pipeline_payload()
+        return context
+
 
 class DolphinLeadDetailView(ScopedDetailView):
     required_feature = "leads"
@@ -686,6 +703,9 @@ class DolphinLeadDetailView(ScopedDetailView):
                 or lead.assigned_to_id == self.request.user.pk
             )
         )
+        from sales.pipeline import pipeline_payload
+
+        context["pipeline_config"] = pipeline_payload()
         return context
 
 

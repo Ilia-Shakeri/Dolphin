@@ -358,7 +358,8 @@ draft/active/paused/finished/archived; channel; dates; target count; budget;
 responsibles; three system campaigns `direct`/`referral`/`legacy`). Its people are
 `TargetAudienceMember` rows — **one per person per campaign** (the global unique
 phone constraint became `unique(campaign, normalized_phone)`), each with its own
-`assigned_to`, `stage` (new/contacted/engaged/converted/lost), `lost_reason`,
+`assigned_to`, `stage` (a key of the `campaign` workflow in `PipelineStage` since 2.40.57 — the five
+seeded ones plus any a company adds), `lost_reason_key` + `lost_reason` (note),
 `next_follow_up_at`, `converted_at` and `was_customer_on_entry`. Each campaign owns
 a hidden `Lead` container (`Lead.campaign`) so interactions, sales and quotations
 keep pointing at a `Lead`; the old `campaign_or_batch` text is untouched.
@@ -636,19 +637,30 @@ Rules:
 - Status codes are backend-owned; the frontend only maps codes to Persian labels/colors.
 - Initial Lead assignment method is **UNRESOLVED**. Do not implement round-robin/equal split/product/city/team/self-pick without approval.
 
-Provisional status candidates, not confirmed contractual values:
+**Stages (2.40.57, product-owner decision BIZ-002, 2026-10-17).** The provisional status list that stood
+here is superseded. A lead carries `stage` (a `PipelineStage` key of the `lead` workflow),
+`lost_reason_key` + `lost_reason` (note) and `stage_changed_at`; `status` follows the stage's kind —
+open → `pending`, won → `completed`, lost → `cancelled` — and is never written directly.
 
-```text
-new
-assigned
-contacted
-no_answer
-follow_up
-not_interested
-invalid_number
-won
-lost
-```
+- `PipelineStage(pipeline lead|campaign, key, label, kind open|won|lost, position, qualifies, manual,
+  is_system, is_active)`: one table for both workflows. Seeded: lead «جدید، تماس اولیه، نیازسنجی،
+  واجد شرایط، ارسال پیش‌فاکتور، مذاکره، برنده، بازنده»; campaign people keep their five
+  (`new/contacted/engaged/converted/lost`, «تبدیل‌شده» `manual=false`). Each workflow has exactly one
+  won and one lost stage, both system, always on and last. `qualifies` marks the stages that make a
+  lead qualified for the conversion rates (default: «واجد شرایط» and after).
+- `LostReason(key, label, needs_note, position, is_system, is_active)`, seven seeded; «سایر»
+  (`other`) always needs a note and cannot be turned off.
+- `StageChange`: append-only history (from/to with labels copied at the time, lost reason, note,
+  `reason`, `reopened`, `source` manual|contact|invoice|migration, `actor` empty for the system).
+  Starting a lead writes no row.
+- Rules (`sales.pipeline`): skipping is allowed; leaving a won/lost stage needs `reason`; a lost
+  stage needs an active reason from the list (and a note when `needs_note`); a stage turned off takes
+  no new moves but keeps its records; a sales agent moves only leads assigned to them (or theirs and
+  unassigned), a manager any in scope. Reaching «برنده» is not a sale — sales are valid invoices.
+- Shaping the lists (add an open stage, rename, reorder, mark qualifying, turn off; add or edit a
+  reason) needs feature `customization` and `customization.manage`. Nothing is ever deleted.
+- Migration 0038 moved existing leads by their status: pending → «جدید» (or «تماس اولیه» when a call
+  was recorded), completed → «برنده», cancelled → «بازنده» with «سایر» and a note.
 
 ### 5.4 LeadAssignmentHistory
 
@@ -1230,6 +1242,7 @@ Base path: `/api/v1/`. Authentication: Django session cookie plus CSRF. Unsafe r
 ### Leads and assignment
 
 - `leads/`: scoped list/create/retrieve/update. Ownership/status fields are read-only. Notes permit at most 4,000 characters. No DELETE. The list accepts `assigned_to=<user id>` (2.19.0), which narrows the caller's own lead scope and never widens it; a non-numeric value is HTTP 400.
+- Stages (2.40.57): create accepts an optional open `stage` to start in; update refuses `stage` and `status`. `POST leads/{id}/stage/` `{stage, lost_reason?, note?, reason?}` moves it under `sales.pipeline`'s rules; `GET leads/{id}/stage-history/` is paginated; the list filters by `stage=<key>` (unknown key → 400). Each lead carries `stage_display`, `stage_kind` and `lost_reason_label`. The same `stage/` body and a `stage-history/` read exist on `campaign-members/{id}/`. `GET pipeline/` and `pipeline/stages/`, `pipeline/stages/{id}/` (+ `move/`), `pipeline/lost-reasons/`, `pipeline/lost-reasons/{id}/` (+ `move/`) shape the lists (feature `customization`, `customization.manage`).
 - `GET leads/assignees/`: Sales Manager, Company IT, or Platform Admin only. Returns paginated minimal identity fields for active clean Sales Agent CRM identities; it does not expose user-administration fields or invent Team boundaries.
 - `GET leads/work-queue/`: Sales Agent only. Returns only Leads currently assigned to the authenticated agent; dated follow-ups sort first by nearest `next_follow_up_at`, then assigned records without a date. Managers use the company Lead list, not this personal endpoint.
 - `GET leads/{id}/assignment-history/`: paginated append-oriented assignment history after the same role/object scope as Lead retrieve. Out-of-scope direct IDs return 404.

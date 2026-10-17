@@ -397,7 +397,70 @@
         <div class="table-responsive" id="custom-fields-table-wrap" hidden><table class="table align-middle table-row-dashed fs-6 gy-3 mb-0"><thead><tr class="text-start text-gray-700 fw-bold fs-7 gs-0"><th>نام</th><th>نوع</th><th>کجا</th><th>وضعیت</th><th><span class="visually-hidden">عملیات</span></th></tr></thead><tbody id="custom-fields-body"></tbody></table></div>
     </div>
 </section>
+<section class="card mb-5 mb-xl-8">
+    {% comment %} The two stage workflows (2.40.57, BIZ-002; `sales.pipeline`, the same
+       `customization` feature and `customization.manage`). A stage is never deleted:
+       turning it off keeps every record in it and only stops new moves into it. The
+       final two stay on and stay last. {% endcomment %}
+    <div class="card-header border-0 pt-6 flex-wrap gap-3">
+        <div class="card-title flex-column">
+            <h2>مراحل سرنخ و کمپین</h2>
+            <span class="text-muted fs-7 mt-1">گردش کار هر بخش: نام و ترتیب مرحله‌ها، و این‌که رسیدن به کدام مرحله سرنخ را «واجد شرایط» می‌کند.</span>
+        </div>
+        <div class="card-toolbar flex-wrap gap-2">
+            <label class="sr-only" for="pipeline-section-select">بخش</label>
+            <select class="form-select form-select-solid w-auto" id="pipeline-section-select"><option value="lead">سرنخ</option><option value="campaign">افراد کمپین</option></select>
+            <button class="btn btn-primary" type="button" id="pipeline-stage-add">مرحلهٔ تازه</button>
+        </div>
+    </div>
+    <div class="card-body pt-2">
+        <div id="pipeline-stages-loading" class="text-center text-gray-700 py-6">در حال دریافت مرحله‌ها…</div>
+        <div class="table-responsive" id="pipeline-stages-table-wrap" hidden><table class="table align-middle table-row-dashed fs-6 gy-3 mb-0"><thead><tr class="text-start text-gray-700 fw-bold fs-7 gs-0"><th>مرحله</th><th>نوع</th><th>واجد شرایط</th><th>وضعیت</th><th><span class="visually-hidden">عملیات</span></th></tr></thead><tbody id="pipeline-stages-body"></tbody></table></div>
+        <p class="text-muted fs-8 mt-4 mb-0">برنده و بازنده مرحله‌های پایانی‌اند؛ همیشه روشن و آخر فهرست می‌مانند. «تبدیل‌شده» در کمپین فقط با فاکتور معتبر می‌رسد.</p>
+    </div>
+</section>
+<section class="card mb-5 mb-xl-8">
+    <div class="card-header border-0 pt-6 flex-wrap gap-3">
+        <div class="card-title flex-column">
+            <h2>دلیل‌های بازنده</h2>
+            <span class="text-muted fs-7 mt-1">فهرستی که هنگام بردن سرنخ یا مخاطب کمپین به مرحلهٔ بازنده از آن انتخاب می‌شود.</span>
+        </div>
+        <div class="card-toolbar"><button class="btn btn-primary" type="button" id="lost-reason-add">دلیل تازه</button></div>
+    </div>
+    <div class="card-body pt-2">
+        <div id="lost-reasons-loading" class="text-center text-gray-700 py-6">در حال دریافت دلیل‌ها…</div>
+        <div class="table-responsive" id="lost-reasons-table-wrap" hidden><table class="table align-middle table-row-dashed fs-6 gy-3 mb-0"><thead><tr class="text-start text-gray-700 fw-bold fs-7 gs-0"><th>دلیل</th><th>توضیح</th><th>وضعیت</th><th><span class="visually-hidden">عملیات</span></th></tr></thead><tbody id="lost-reasons-body"></tbody></table></div>
+    </div>
+</section>
 </div>
+<dialog id="pipeline-stage-dialog" aria-labelledby="pipeline-stage-dialog-title">
+    <div class="d-flex flex-stack align-items-center mb-5"><h2 id="pipeline-stage-dialog-title" class="mb-0">مرحله</h2><button class="btn btn-icon btn-light" type="button" data-close-dialog aria-label="بستن">×</button></div>
+    <form id="pipeline-stage-form" novalidate>
+        <div class="d-grid gap-5">
+            <div><label class="form-label fw-semibold required" for="pipeline-stage-label">نام مرحله</label><input class="form-control form-control-solid" id="pipeline-stage-label" name="label" maxlength="60" required><p class="text-danger fs-8 mt-1 mb-0" data-error-for="label"></p></div>
+            <div class="d-flex flex-wrap gap-8">
+                <div class="form-check form-check-custom form-check-solid form-switch"><input class="form-check-input" type="checkbox" id="pipeline-stage-qualifies" name="qualifies"><label class="form-check-label" for="pipeline-stage-qualifies">رسیدن به آن یعنی واجد شرایط</label></div>
+                <div class="form-check form-check-custom form-check-solid form-switch" id="pipeline-stage-active-wrap" hidden><input class="form-check-input" type="checkbox" id="pipeline-stage-active" name="is_active"><label class="form-check-label" for="pipeline-stage-active">روشن</label></div>
+            </div>
+            <p class="text-danger fs-8 mb-0" data-error-for="qualifies"></p><p class="text-danger fs-8 mb-0" data-error-for="is_active"></p><p class="text-danger fs-8 mb-0" data-error-for="pipeline"></p>
+        </div>
+        <div class="d-flex justify-content-end gap-3 mt-6"><button class="btn btn-primary" type="submit">ذخیره</button></div>
+    </form>
+</dialog>
+<dialog id="lost-reason-dialog" aria-labelledby="lost-reason-dialog-title">
+    <div class="d-flex flex-stack align-items-center mb-5"><h2 id="lost-reason-dialog-title" class="mb-0">دلیل بازنده</h2><button class="btn btn-icon btn-light" type="button" data-close-dialog aria-label="بستن">×</button></div>
+    <form id="lost-reason-form" novalidate>
+        <div class="d-grid gap-5">
+            <div><label class="form-label fw-semibold required" for="lost-reason-label">دلیل</label><input class="form-control form-control-solid" id="lost-reason-label" name="label" maxlength="60" required><p class="text-danger fs-8 mt-1 mb-0" data-error-for="label"></p></div>
+            <div class="d-flex flex-wrap gap-8">
+                <div class="form-check form-check-custom form-check-solid form-switch"><input class="form-check-input" type="checkbox" id="lost-reason-needs-note" name="needs_note"><label class="form-check-label" for="lost-reason-needs-note">توضیح اجباری</label></div>
+                <div class="form-check form-check-custom form-check-solid form-switch" id="lost-reason-active-wrap" hidden><input class="form-check-input" type="checkbox" id="lost-reason-active" name="is_active"><label class="form-check-label" for="lost-reason-active">روشن</label></div>
+            </div>
+            <p class="text-danger fs-8 mb-0" data-error-for="needs_note"></p><p class="text-danger fs-8 mb-0" data-error-for="is_active"></p>
+        </div>
+        <div class="d-flex justify-content-end gap-3 mt-6"><button class="btn btn-primary" type="submit">ذخیره</button></div>
+    </form>
+</dialog>
 <dialog id="custom-field-dialog" aria-labelledby="custom-field-dialog-title">
     <div class="d-flex flex-stack align-items-center mb-5"><h2 id="custom-field-dialog-title" class="mb-0">فیلد اختصاصی</h2><button class="btn btn-icon btn-light" type="button" data-close-dialog aria-label="بستن">×</button></div>
     <form id="custom-field-form" novalidate>

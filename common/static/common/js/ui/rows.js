@@ -1,6 +1,6 @@
 import {toPersianDigits} from "dolphin/core/digits.js";
 import {displayDate, displayDay} from "dolphin/core/jalali.js";
-import {LEAD_STATUS_LABELS} from "dolphin/core/labels.js";
+import {stageBadge} from "dolphin/ui/pipeline.js";
 import {appendCell, appendDetailLink, directionText} from "dolphin/ui/table.js";
 
 /** An E.164 Iranian number the way it is written here (`۰۹۱۲…`). */
@@ -15,13 +15,10 @@ export function leadRow(lead) {
     // audience rather than from one customer.
     appendCell(row, lead.source);
     appendCell(row, lead.campaign_or_batch);
-    const [label, badgeClass] = LEAD_STATUS_LABELS[lead.status] || [lead.status || "—", "badge-light"];
-    const statusCell = document.createElement("td");
-    const badge = document.createElement("span");
-    badge.className = `badge ${badgeClass}`;
-    badge.textContent = label;
-    statusCell.append(badge);
-    row.append(statusCell);
+    // The lead's stage (2.40.57), coloured by its kind: open, won or lost.
+    const stageCell = document.createElement("td");
+    stageCell.append(stageBadge(lead.stage_display, lead.stage_kind));
+    row.append(stageCell);
     if (!lead.assigned_to && lead.returned_from) {
         // Back from a deactivated account, waiting for a manager (2.40.48).
         const cell = document.createElement("td");

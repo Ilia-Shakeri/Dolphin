@@ -21,9 +21,9 @@ export async function setupLeads() {
         endpoint(page) {
             const query = new URLSearchParams({page: String(page), ordering: document.getElementById("lead-ordering").value});
             const search = document.getElementById("lead-search").value.trim();
-            const status = document.getElementById("lead-status-filter").value.trim();
+            const stage = document.getElementById("lead-stage-filter").value.trim();
             if (search) query.set("search", search);
-            if (status) query.set("status", status);
+            if (stage) query.set("stage", stage);
             if (returnedFrom) query.set("returned_from", returnedFrom);
             return `/api/v1/leads/?${query}`;
         }, renderRow: leadRow,
@@ -35,7 +35,7 @@ export async function setupLeads() {
             ["منبع", document.getElementById("create-lead-source").value || "—"],
             ["کمپین", selectedOptionText(document.getElementById("create-lead-campaign"))],
             ["مسئول", selectedOptionText(document.getElementById("create-lead-assignee"))],
-            ["وضعیت", selectedOptionText(document.getElementById("create-lead-status"))],
+            ["مرحلهٔ شروع", selectedOptionText(document.getElementById("create-lead-stage"))],
             ["پیگیری بعدی", document.getElementById("create-lead-follow-up").value || "—"],
             ["یادداشت", document.getElementById("create-lead-notes").value || "—"],
         ]);
@@ -90,7 +90,7 @@ export async function setupLeads() {
             const data = new FormData(createForm);
             // No customer and no interested product: a campaign is worked
             // from its target audience.
-            const payload = formPayload(createForm, ["source", "status", "notes"]);
+            const payload = formPayload(createForm, ["source", "stage", "notes"]);
             payload.campaign = Number(data.get("campaign"));
             if (data.get("assign_to")) payload.assign_to = Number(data.get("assign_to"));
             if (data.get("next_follow_up_at")) payload.next_follow_up_at = apiDateTime(data.get("next_follow_up_at"));

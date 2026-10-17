@@ -24,9 +24,9 @@ from sales.campaigns import (
     create_campaign,
     ensure_system_campaigns,
     set_campaign_status,
-    set_member_stage,
     update_campaign,
 )
+from sales.pipeline import set_member_stage
 from sales.models import Campaign, CampaignAttribution, CampaignAttributionLog, Lead, TargetAudienceMember
 from sales.services import (
     add_target_audience_member,
@@ -131,9 +131,12 @@ class CampaignServiceTests(Fixtures):
             set_member_stage(actor=self.agent, member=member, stage="converted")
         with self.assertRaises(BusinessRuleError):
             set_member_stage(actor=self.agent, member=member, stage="lost")  # no reason
-        set_member_stage(actor=self.agent, member=member, stage="lost", lost_reason="جواب نداد")
+        # 2.40.57: the reason comes from the list; «سایر» also needs a note.
+        with self.assertRaises(BusinessRuleError):
+            set_member_stage(actor=self.agent, member=member, stage="lost", lost_reason="other")
+        set_member_stage(actor=self.agent, member=member, stage="lost", lost_reason="other", note="جواب نداد")
         member.refresh_from_db()
-        self.assertEqual((member.stage, member.lost_reason), ("lost", "جواب نداد"))
+        self.assertEqual((member.stage, member.lost_reason_key, member.lost_reason), ("lost", "other", "جواب نداد"))
 
     def test_the_first_call_moves_a_new_person_to_contacted(self):
         member = self.member()

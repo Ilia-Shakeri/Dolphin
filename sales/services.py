@@ -29,6 +29,7 @@ from sales.models import (
     ProductCategory,
     Sale,
     SalesDocument,
+    PipelineStage,
     PostalStatusHistory,
     TargetAudienceMember,
 )
@@ -56,10 +57,9 @@ CUSTOMER_MUTABLE_FIELDS = {
     "owner",
     "category_ref",
 }
-# `status` is set by the person working the campaign, not by the server: it
-# records their judgement of where the campaign stands. The three permitted
-# values are fixed by Lead.Status and checked by _validate_lead_status.
-LEAD_MUTABLE_FIELDS = {"source", "campaign_or_batch", "interested_product", "next_follow_up_at", "notes", "status"}
+# `status` follows the lead's stage since 2.40.57 (`sales.pipeline`): a stage
+# is moved with `set_lead_stage`, which keeps the history, never here.
+LEAD_MUTABLE_FIELDS = {"source", "campaign_or_batch", "interested_product", "next_follow_up_at", "notes"}
 PHONE_MUTABLE_FIELDS = {"raw_phone", "label", "is_primary", "is_active"}
 PRODUCT_MUTABLE_FIELDS = {"sku", "name", "category", "brand", "barcode", "unit", "current_price", "description"}
 PRODUCT_CATEGORY_CREATE_FIELDS = {"code", "name", "description", "display_order"}
@@ -88,12 +88,6 @@ SALES_DOCUMENT_TEXT_LIMITS = {
     "postal_status": 80,
     "notes": FREE_TEXT_MAX_LENGTH,
 }
-
-
-def _validate_lead_status(data):
-    """Refuse a status outside the three states a campaign is tracked in."""
-    if "status" in data and data["status"] not in Lead.Status.values:
-        raise BusinessRuleError({"status": "یکی از سه وضعیت کمپین را انتخاب کنید."})
 
 
 def _validate_text_lengths(values, limits):
@@ -564,7 +558,7 @@ def _resolve_new_lead_assignee(actor, campaign, assignee):
 
 
 @transaction.atomic
-def create_lead(*, actor, customer=None, campaign=None, assignee=AUTO_ASSIGN, **data):
+def create_lead(*, actor, customer=None, campaign=None, assignee=AUTO_ASSIGN, stage=None, **data):
     """Start a campaign.
 
     `customer` is optional: a campaign is worked from its target audience, and
@@ -575,13 +569,25 @@ def create_lead(*, actor, customer=None, campaign=None, assignee=AUTO_ASSIGN, **
     evenly among the campaign's responsibles (`pick_balanced_assignee`); a user
     instead is a manual choice — anyone who works leads for a manager, only
     themselves for a marketer.
+
+    `stage` (2.40.57): an open stage of the lead workflow to start in; the
+    first one that is on by default. Starting is not a move, so it writes no
+    history row (one would also keep a lead made by mistake from being
+    deleted).
     """
+    from sales.pipeline import LEAD as LEAD_PIPELINE, LEAD_STATUS_FOR_KIND, first_open_stage
+
     actor = _lock_operational_actor(actor)
     unknown = set(data) - LEAD_MUTABLE_FIELDS
     if unknown:
         raise BusinessRuleError({field: "این فیلد قابل تنظیم نیست." for field in sorted(unknown)})
     _validate_text_lengths(data, LEAD_TEXT_LIMITS)
-    _validate_lead_status(data)
+    if stage in (None, ""):
+        start = first_open_stage(LEAD_PIPELINE)
+    else:
+        start = PipelineStage.objects.filter(pipeline=LEAD_PIPELINE, key=str(stage), is_active=True).first()
+        if start is None or start.kind != PipelineStage.Kind.OPEN:
+            raise BusinessRuleError({"stage": "سرنخ تازه از یکی از مرحله‌های باز شروع می‌شود."})
     if customer is not None and not customers_for(actor).filter(pk=customer.pk).exists():
         raise BusinessPermissionDenied("این مشتری خارج از دسترسی شماست.")
     if campaign is not None:
@@ -592,7 +598,12 @@ def create_lead(*, actor, customer=None, campaign=None, assignee=AUTO_ASSIGN, **
     assignment = {}
     if target is not None:
         assignment = {"assigned_to": target, "assigned_by": actor, "assigned_at": timezone.now()}
-    lead = Lead.objects.create(customer=customer, campaign=campaign, created_by=actor, source_payload={}, **assignment, **data)
+    stage_fields = {}
+    if start is not None:
+        stage_fields = {"stage": start.key, "status": LEAD_STATUS_FOR_KIND[start.kind], "stage_changed_at": timezone.now()}
+    lead = Lead.objects.create(
+        customer=customer, campaign=campaign, created_by=actor, source_payload={}, **assignment, **stage_fields, **data,
+    )
     if target is not None:
         LeadAssignmentHistory.objects.create(
             lead=lead, from_user=None, to_user=target, changed_by=actor,
@@ -624,11 +635,12 @@ def update_lead(*, actor, lead, **changes):
         if new_id != locked.customer_id:
             raise BusinessRuleError({"customer": "مشتری سرنخ قابل تغییر نیست."})
         changes.pop("customer")
+    if "status" in changes or "stage" in changes:
+        raise BusinessRuleError({"stage": "مرحلهٔ سرنخ را با «تغییر مرحله» عوض کنید تا در تاریخچه بماند."})
     unknown = set(changes) - LEAD_MUTABLE_FIELDS
     if unknown:
         raise BusinessRuleError({field: "این فیلد قابل تغییر نیست." for field in sorted(unknown)})
     _validate_text_lengths(changes, LEAD_TEXT_LIMITS)
-    _validate_lead_status(changes)
     changed_fields = []
     for field, value in changes.items():
         current_id = getattr(locked, f"{field}_id", None) if field in {"customer", "interested_product"} else None

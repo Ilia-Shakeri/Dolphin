@@ -27,10 +27,11 @@ from sales.campaigns import (
     ensure_customer_for_member,
     ensure_system_campaigns,
     set_campaign_status,
-    set_member_stage,
     update_campaign,
 )
-from sales.models import Campaign, CampaignAttributionLog, TargetAudienceMember
+from sales.pipeline import history_for_member, set_member_stage
+from sales.serializers import StageChangeSerializer, StageMoveSerializer, lost_reason_name, stage_kind, stage_name
+from sales.models import Campaign, CampaignAttributionLog, PipelineStage, TargetAudienceMember
 from sales.permissions import HasSalesCapability
 
 
@@ -113,17 +114,30 @@ class CampaignSerializer(serializers.ModelSerializer):
 
 class CampaignMemberSerializer(serializers.ModelSerializer):
     campaign_name = serializers.CharField(source="campaign.name", read_only=True)
-    stage_display = serializers.CharField(source="get_stage_display", read_only=True)
+    #: From the `campaign` workflow's table (2.40.57), which a company may extend.
+    stage_display = serializers.SerializerMethodField()
+    stage_kind = serializers.SerializerMethodField()
+    lost_reason_label = serializers.SerializerMethodField()
     assigned_to_display = serializers.SerializerMethodField()
 
     class Meta:
         model = TargetAudienceMember
         fields = [
-            "id", "campaign", "campaign_name", "full_name", "raw_phone", "stage", "stage_display", "lost_reason",
+            "id", "campaign", "campaign_name", "full_name", "raw_phone", "stage", "stage_display", "stage_kind", "lost_reason",
+            "lost_reason_key", "lost_reason_label",
             "assigned_to", "assigned_to_display", "next_follow_up_at", "converted_at", "was_customer_on_entry",
             "status", "customer", "created_at",
         ]
         read_only_fields = fields
+
+    def get_stage_display(self, instance) -> str:
+        return stage_name(self.context, "campaign", instance.stage)
+
+    def get_stage_kind(self, instance) -> str:
+        return stage_kind(self.context, "campaign", instance.stage)
+
+    def get_lost_reason_label(self, instance) -> str:
+        return lost_reason_name(self.context, "campaign", instance.lost_reason_key)
 
     def get_assigned_to_display(self, instance) -> str:
         user = instance.assigned_to
@@ -137,9 +151,8 @@ class AddMemberSerializer(serializers.Serializer):
     assigned_to = serializers.PrimaryKeyRelatedField(queryset=User.objects.filter(is_active=True), required=False)
 
 
-class StageSerializer(serializers.Serializer):
-    stage = serializers.CharField()
-    lost_reason = serializers.CharField(required=False, allow_blank=True, max_length=300)
+class CampaignStatusSerializer(serializers.Serializer):
+    status = serializers.CharField(max_length=20)
 
 
 class AssignSerializer(serializers.Serializer):
@@ -257,7 +270,7 @@ class CampaignViewSet(SensitiveActionThrottleMixin, AdminHardDeleteModelViewSet)
         self._manager_only()
         return super().partial_update(request, *args, **kwargs)
 
-    @extend_schema(request=StageSerializer, responses={200: CampaignSerializer})
+    @extend_schema(request=CampaignStatusSerializer, responses={200: CampaignSerializer})
     @action(detail=True, methods=["post"], url_path="status")
     def set_status(self, request, pk=None):
         self._manager_only()
@@ -280,12 +293,12 @@ class CampaignViewSet(SensitiveActionThrottleMixin, AdminHardDeleteModelViewSet)
         queryset = members_for(request.user).filter(campaign=campaign).select_related("campaign", "assigned_to")
         stage = request.query_params.get("stage")
         if stage:
-            if stage not in TargetAudienceMember.Stage.values:
+            if not PipelineStage.objects.filter(pipeline="campaign", key=stage).exists():
                 raise ValidationError({"stage": "مرحله نامعتبر است."})
             queryset = queryset.filter(stage=stage)
         queryset = queryset.order_by("full_name", "id")
         page = self.paginate_queryset(queryset)
-        return self.get_paginated_response(CampaignMemberSerializer(page, many=True).data)
+        return self.get_paginated_response(CampaignMemberSerializer(page, many=True, context={}).data)
 
     @action(detail=False, methods=["get"])
     def results(self, request):
@@ -409,13 +422,19 @@ class CampaignMemberViewSet(FeatureGatedAPIMixin, SensitiveActionThrottleMixin, 
     def get_queryset(self):
         return members_for(self.request.user).select_related("campaign", "assigned_to")
 
-    @extend_schema(request=StageSerializer, responses={200: CampaignMemberSerializer})
+    @extend_schema(request=StageMoveSerializer, responses={200: CampaignMemberSerializer})
     @action(detail=True, methods=["post"])
     def stage(self, request, pk=None):
-        body = StageSerializer(data=request.data)
+        body = StageMoveSerializer(data=request.data)
         body.is_valid(raise_exception=True)
         member = set_member_stage(actor=request.user, member=self.get_object(), **body.validated_data)
         return Response(CampaignMemberSerializer(member).data)
+
+    @extend_schema(responses={200: StageChangeSerializer(many=True)})
+    @action(detail=True, methods=["get"], url_path="stage-history")
+    def stage_history(self, request, pk=None):
+        page = self.paginate_queryset(history_for_member(self.get_object()))
+        return self.get_paginated_response(StageChangeSerializer(page, many=True).data)
 
     @extend_schema(responses={200: CampaignMemberSerializer(many=True)})
     @action(detail=False, methods=["get"])

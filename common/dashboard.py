@@ -473,22 +473,25 @@ def _jalali_day(value):
 
 
 def _lead_breakdown(user):
+    """By the lead's stage (2.40.57), as the company named its stages."""
+    from sales.pipeline import LEAD, stages
+
     rows = (
         work_leads_for(user)
-        .values("status")
+        .values("stage")
         .annotate(total=Count("id"))
         .order_by("-total")[:BREAKDOWN_LIMIT]
     )
-    labels = dict(Lead.Status.choices)
+    labels = {stage.key: stage.label for stage in stages(LEAD)}
     items = [
         {
-            "label": labels.get(row["status"], row["status"] or "بدون وضعیت"),
+            "label": labels.get(row["stage"], row["stage"]),
             "value": row["total"],
             "display": formatting.persian_digits(row["total"]),
         }
         for row in rows
     ]
-    return {"title": "سرنخ‌ها به تفکیک وضعیت", "items": items, "url": "/leads/"}
+    return {"title": "سرنخ‌ها به تفکیک مرحله", "items": items, "url": "/leads/"}
 
 
 def _after_sales_breakdown(user):

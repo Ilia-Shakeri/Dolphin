@@ -22,7 +22,15 @@ from accounts.access import has_any_capability
 from auditlog.services import log_activity
 from common.deployment.profile import feature_enabled
 from common.exceptions import BusinessConflictError, BusinessPermissionDenied, BusinessRuleError
-from sales.models import Campaign, CampaignAttribution, CampaignAttributionLog, Interaction, TargetAudienceMember
+from sales.models import (
+    Campaign,
+    CampaignAttribution,
+    CampaignAttributionLog,
+    Interaction,
+    StageChange,
+    TargetAudienceMember,
+)
+from sales.pipeline import record_system_move
 
 logger = logging.getLogger("dolphin.campaigns")
 
@@ -71,9 +79,11 @@ def _mark_converted(member, at):
     if member.was_customer_on_entry:
         return
     if member.stage != TargetAudienceMember.Stage.CONVERTED:
+        previous = member.stage
         member.stage = TargetAudienceMember.Stage.CONVERTED
         member.converted_at = at
         member.save(update_fields=["stage", "converted_at", "updated_at"])
+        record_system_move(member=member, from_key=previous, to_key=member.stage, source=StageChange.Source.INVOICE)
 
 
 def _release_member(member):
@@ -91,6 +101,9 @@ def _release_member(member):
         stage = TargetAudienceMember.Stage.NEW
     member.stage, member.converted_at = stage, None
     member.save(update_fields=["stage", "converted_at", "updated_at"])
+    record_system_move(
+        member=member, from_key=TargetAudienceMember.Stage.CONVERTED, to_key=stage, source=StageChange.Source.INVOICE,
+    )
 
 
 def attribute_issued_invoice(*, invoice, issued_at):

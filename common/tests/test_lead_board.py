@@ -144,15 +144,22 @@ class TemplateContentTests(TestCase):
 class ScriptTests(SimpleTestCase):
     body = _function_body("setupLeadBoard", "\n    async function setupAfterSalesCalendar")
 
-    def test_the_three_columns_are_the_real_model_labels_not_invented_ones(self):
-        """No parallel status vocabulary — reuses the same map the ordinary
-        list's table row and the calendar legend already use."""
-        self.assertIn("Object.keys(LEAD_STATUS_LABELS)", self.body)
+    def test_the_columns_are_the_lead_workflows_own_stages_not_invented_ones(self):
+        """2.40.57 (BIZ-002): one column per stage of the lead workflow, from
+        the page's embedded `#pipeline-config` (`sales.pipeline`) — no
+        parallel vocabulary in the script. A stage that is turned off keeps
+        its column only while leads sit in it."""
+        self.assertIn('stagesOf("lead")', self.body)
+        self.assertIn("stage.is_active || data.count > 0", self.body)
 
-    def test_dragging_reuses_the_existing_lead_endpoint(self):
-        self.assertIn("/api/v1/leads/${leadId}/", self.body)
-        self.assertIn('method: "PATCH"', self.body)
-        self.assertIn("body: {status: toStatus}", self.body)
+    def test_dragging_is_the_leads_own_stage_move(self):
+        """The same `stage/` action the detail page uses, through the shared
+        dialog for a lost stage or for leaving a final one; a dialog closed
+        without saving puts the card back."""
+        self.assertIn("/api/v1/leads/${leadId}/stage/", self.body)
+        self.assertIn("moveStage(", self.body)
+        self.assertIn("if (!moved)", self.body)
+        self.assertNotIn('method: "PATCH"', self.body)
 
     def test_no_second_endpoint_or_status_vocabulary_is_introduced(self):
         self.assertNotIn("/api/v1/lead-board", self.body)
@@ -188,7 +195,8 @@ class ScriptTests(SimpleTestCase):
     def test_pagination_is_bounded_not_a_full_table_load(self):
         """One page per column per request, not `loadAllPages` — a column
         with many leads must not load an unbounded result set."""
-        self.assertIn("page=1", self.body)
+        self.assertIn("columnUrl(status, 1)", self.body)
+        self.assertIn("&page=${page}", self.body)
         self.assertNotIn("loadAllPages", self.body)
 
     def test_a_column_with_more_pages_offers_a_load_more_control(self):
@@ -197,7 +205,7 @@ class ScriptTests(SimpleTestCase):
 
     def test_empty_columns_are_handled(self):
         self.assertIn("renderEmptyState", self.body)
-        self.assertIn("سرنخی در این وضعیت نیست", self.body)
+        self.assertIn("سرنخی در این مرحله نیست", self.body)
 
 
 class StylingTests(SimpleTestCase):

@@ -22,7 +22,7 @@
         {% comment %} In the filter popover behind the filter icon (2.40.25). {% endcomment %}
         <form id="campaign-members-filter-form" class="list-filters" novalidate>
         <label class="sr-only" for="campaign-members-stage">مرحله</label>
-        <select class="form-select form-select-solid" id="campaign-members-stage"><option value="">همه مرحله‌ها</option><option value="new">جدید</option><option value="contacted">تماس گرفته‌شده</option><option value="engaged">در تعامل</option><option value="converted">تبدیل‌شده</option><option value="lost">ازدست‌رفته</option></select>
+        <select class="form-select form-select-solid" id="campaign-members-stage"><option value="">همه مرحله‌ها</option>{% for stage in pipeline_config.stages.campaign %}<option value="{{ stage.key }}">{{ stage.label }}{% if not stage.is_active %} (خاموش){% endif %}</option>{% endfor %}</select>
         <button class="btn btn-primary list-filters-submit" type="submit">اعمال</button>
         </form>
         {% if can_manage_campaigns %}<button id="open-add-member" class="btn btn-primary" type="button">افزودن مخاطب</button>{% endif %}
@@ -67,11 +67,7 @@
     </form>
 </dialog>
 {% endif %}
-<dialog id="member-lost-dialog" aria-labelledby="member-lost-title">
-    <div class="d-flex flex-stack align-items-center mb-5"><h2 id="member-lost-title">ازدست‌رفتن مخاطب</h2><button class="btn btn-icon btn-light" type="button" data-close-dialog aria-label="بستن">×</button></div>
-    <form id="member-lost-form" novalidate>
-        <label class="form-label fw-semibold" for="member-lost-reason">دلیل</label><input class="form-control form-control-solid" id="member-lost-reason" name="lost_reason" maxlength="300" required><p class="text-danger fs-8 mt-1 mb-0" data-error-for="lost_reason"></p>
-        <div class="d-flex justify-content-end gap-3 mt-6"><button class="btn btn-danger" type="submit">ثبت</button></div>
-    </form>
-</dialog>
+{% comment %} A lost stage asks for its reason from the list, and leaving a final
+   stage for why (2.40.57) — the dialog every stage move shares. {% endcomment %}
+{% include "common/includes/stage_change_dialog.inc" %}
 {% endblock %}

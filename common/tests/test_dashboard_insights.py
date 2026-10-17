@@ -137,7 +137,7 @@ class RoleShapeTests(DashboardFixtures):
         lead = create_lead(actor=self.manager, customer=self.a_customer(), source="کمپین")
         assign_lead(actor=self.manager, lead=lead, to_user=self.agent)
         data = dashboard.dashboard_for(self.agent)
-        self.assertEqual(data["breakdown"]["title"], "سرنخ‌ها به تفکیک وضعیت")
+        self.assertEqual(data["breakdown"]["title"], "سرنخ‌ها به تفکیک مرحله")
 
     def test_a_reader_with_nothing_in_scope_gets_an_empty_panel(self):
         data = dashboard.dashboard_for(self.after_sales)
@@ -298,14 +298,14 @@ class GaugeTests(DashboardFixtures):
         return next((item for item in data["gauges"] if item["key"] == key), None)
 
     def test_lead_conversion_counts_only_decided_leads(self):
-        from sales.models import Lead
-        from sales.services import update_lead
+        from sales.pipeline import set_lead_stage
 
         customer = self.a_customer()
+        # 2.40.57: a lead is decided by reaching a final stage.
         completed = create_lead(actor=self.manager, customer=customer, source="کمپین گیج")
-        update_lead(actor=self.manager, lead=completed, status=Lead.Status.COMPLETED)
+        set_lead_stage(actor=self.manager, lead=completed, stage="won")
         cancelled = create_lead(actor=self.manager, customer=customer, source="کمپین گیج")
-        update_lead(actor=self.manager, lead=cancelled, status=Lead.Status.CANCELLED)
+        set_lead_stage(actor=self.manager, lead=cancelled, stage="lost", lost_reason="price")
         # A pending lead has not been decided yet; it must not water down the
         # rate as though it were a loss.
         create_lead(actor=self.manager, customer=customer, source="کمپین گیج")

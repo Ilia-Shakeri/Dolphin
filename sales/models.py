@@ -20,6 +20,12 @@ PRODUCT_CATEGORY_DESCRIPTION_MAX_LENGTH = 2000
 PRODUCT_CATEGORY_NAME_MAX_LENGTH = 120
 PRODUCT_BRAND_MAX_LENGTH = 120
 PRODUCT_BARCODE_MAX_LENGTH = 64
+#: A stage's or a lost reason's key (2.40.57): the system's own words, or
+#: `c<n>` for one a company added.
+PIPELINE_KEY_MAX_LENGTH = 40
+PIPELINE_LABEL_MAX_LENGTH = 60
+LOST_NOTE_MAX_LENGTH = 300
+STAGE_REASON_MAX_LENGTH = 500
 
 
 class CustomerCategory(TimeStampedModel):
@@ -417,6 +423,17 @@ class Lead(TimeStampedModel):
     returned_at = models.DateTimeField(null=True, blank=True)
     next_follow_up_at = models.DateTimeField(null=True, blank=True, db_index=True)
     closed_at = models.DateTimeField(null=True, blank=True)
+    #: Where the lead stands (2.40.57, BIZ-002): a `PipelineStage` key of the
+    #: `lead` pipeline. `status` above follows it — open → pending, won →
+    #: completed, lost → cancelled — so every older reader keeps working.
+    #: Changed only by `sales.pipeline.set_lead_stage`, which writes the
+    #: history. Reaching «برنده» by hand is not a sale: sales are counted from
+    #: valid invoices (`sales.conversion`).
+    stage = models.CharField(max_length=PIPELINE_KEY_MAX_LENGTH, default="new", db_index=True)
+    #: A `LostReason` key while the stage is a lost one, and the note beside it.
+    lost_reason_key = models.CharField(max_length=PIPELINE_KEY_MAX_LENGTH, blank=True)
+    lost_reason = models.CharField(max_length=LOST_NOTE_MAX_LENGTH, blank=True)
+    stage_changed_at = models.DateTimeField(null=True, blank=True)
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="created_leads")
     notes = models.CharField(max_length=FREE_TEXT_MAX_LENGTH, blank=True)
     source_payload = models.JSONField(default=dict, blank=True)
@@ -430,7 +447,10 @@ class Lead(TimeStampedModel):
                     | Q(assigned_to__isnull=False, assigned_by__isnull=False, assigned_at__isnull=False)
                 ),
                 name="lead_assignment_fields_consistent",
-            )
+            ),
+            models.CheckConstraint(
+                condition=Q(stage__regex=r"\A[a-z][a-z0-9_]{0,39}\Z"), name="lead_stage_key_shape"
+            ),
         ]
         indexes = [
             models.Index(fields=["assigned_to", "status", "next_follow_up_at"]),
@@ -487,6 +507,10 @@ class TargetAudienceMember(TimeStampedModel):
         CONVERTED = "converted", "تبدیل‌شده"
         LOST = "lost", "ازدست‌رفته"
 
+        # 2.40.57 (BIZ-002): these five are the `campaign` pipeline's system
+        # stages in `PipelineStage`; a company may add its own open stages
+        # beside them, so `stage` is any key of that pipeline, not only these.
+
     campaign = models.ForeignKey(Campaign, null=True, blank=True, on_delete=models.PROTECT, related_name="members")
     assigned_to = models.ForeignKey(
         settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name="assigned_campaign_members"
@@ -500,8 +524,10 @@ class TargetAudienceMember(TimeStampedModel):
         settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name="returned_campaign_members"
     )
     returned_at = models.DateTimeField(null=True, blank=True)
-    stage = models.CharField(max_length=12, choices=Stage.choices, default=Stage.NEW, db_index=True)
-    lost_reason = models.CharField(max_length=300, blank=True)
+    stage = models.CharField(max_length=PIPELINE_KEY_MAX_LENGTH, default=Stage.NEW, db_index=True)
+    #: Free text before 2.40.57; since then the note beside `lost_reason_key`.
+    lost_reason = models.CharField(max_length=LOST_NOTE_MAX_LENGTH, blank=True)
+    lost_reason_key = models.CharField(max_length=PIPELINE_KEY_MAX_LENGTH, blank=True)
     next_follow_up_at = models.DateTimeField(null=True, blank=True, db_index=True)
     converted_at = models.DateTimeField(null=True, blank=True)
     #: The person was already a customer when they entered this campaign. A
@@ -536,15 +562,148 @@ class TargetAudienceMember(TimeStampedModel):
             models.UniqueConstraint(
                 fields=["campaign", "normalized_phone"], name="uniq_member_campaign_phone"
             ),
+            # 2.40.57: any key of the `campaign` pipeline (a company may add
+            # stages); which keys exist is `PipelineStage`'s, checked by the
+            # service. The five-value rule was relaxed, which the previous
+            # release — writing only those five — never notices.
             models.CheckConstraint(
-                condition=Q(stage__in=["new", "contacted", "engaged", "converted", "lost"]),
-                name="target_member_stage_valid",
+                condition=Q(stage__regex=r"\A[a-z][a-z0-9_]{0,39}\Z"), name="target_member_stage_key_shape"
             ),
         ]
         indexes = [
             models.Index(fields=["campaign", "stage"], name="member_campaign_stage_idx"),
             models.Index(fields=["lead", "status", "full_name"]),
             models.Index(fields=["normalized_phone", "status"]),
+        ]
+
+
+class PipelineStage(TimeStampedModel):
+    """One stage of a lead's or a campaign person's progress (2.40.57, BIZ-002).
+
+    Product owner, 2026-10-17: «مراحل سرنخ با مراحل افراد داخل کمپین از نظر
+    ساختار داده یکی باشند، اما امکان تعریف گردش کار متفاوت برای هر بخش وجود
+    داشته باشد». One table, one `pipeline` per section.
+
+    The system stages are seeded by migration and are never deleted; a company
+    renames, reorders, or turns off an open one, and adds its own open stages
+    (`sales.pipeline`, feature `customization`). Each pipeline has exactly one
+    won and one lost stage, both final; leaving either needs a reason.
+    """
+
+    class Pipeline(models.TextChoices):
+        LEAD = "lead", "سرنخ"
+        CAMPAIGN = "campaign", "افراد کمپین"
+
+    class Kind(models.TextChoices):
+        OPEN = "open", "باز"
+        WON = "won", "برنده"
+        LOST = "lost", "بازنده"
+
+    pipeline = models.CharField(max_length=16, choices=Pipeline.choices)
+    key = models.CharField(max_length=PIPELINE_KEY_MAX_LENGTH)
+    label = models.CharField(max_length=PIPELINE_LABEL_MAX_LENGTH)
+    kind = models.CharField(max_length=8, choices=Kind.choices, default=Kind.OPEN)
+    position = models.PositiveSmallIntegerField(default=0)
+    #: Reaching this stage makes a lead *qualified* for the conversion rates
+    #: (`sales.conversion`): «واجد شرایط» and every stage after it by default.
+    qualifies = models.BooleanField(default=False)
+    #: `False` for a stage only the system moves people into — a campaign
+    #: person's «تبدیل‌شده», which follows a valid invoice.
+    manual = models.BooleanField(default=True)
+    is_system = models.BooleanField(default=False)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ["pipeline", "position", "id"]
+        constraints = [
+            models.UniqueConstraint(fields=["pipeline", "key"], name="uniq_pipeline_stage_key"),
+            models.CheckConstraint(condition=Q(pipeline__in=["lead", "campaign"]), name="pipeline_stage_pipeline_valid"),
+            models.CheckConstraint(condition=Q(kind__in=["open", "won", "lost"]), name="pipeline_stage_kind_valid"),
+            models.CheckConstraint(condition=Q(key__regex=r"\A[a-z][a-z0-9_]{0,39}\Z"), name="pipeline_stage_key_shape"),
+            models.CheckConstraint(condition=Q(label__regex=r"\S"), name="pipeline_stage_label_nonblank"),
+            # The final stages are the system's own and stay on.
+            models.CheckConstraint(
+                condition=Q(kind="open") | Q(is_system=True, is_active=True), name="pipeline_stage_final_is_system"
+            ),
+        ]
+
+
+class LostReason(TimeStampedModel):
+    """Why a lead or a campaign person was lost (2.40.57, BIZ-002).
+
+    A list, not free text, so the reasons can be counted. «سایر» asks for a
+    note (`needs_note`) and can never be turned off, so a reason is always
+    there to choose.
+    """
+
+    key = models.CharField(max_length=PIPELINE_KEY_MAX_LENGTH, unique=True)
+    label = models.CharField(max_length=PIPELINE_LABEL_MAX_LENGTH)
+    needs_note = models.BooleanField(default=False)
+    position = models.PositiveSmallIntegerField(default=0)
+    is_system = models.BooleanField(default=False)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ["position", "id"]
+        constraints = [
+            models.CheckConstraint(condition=Q(key__regex=r"\A[a-z][a-z0-9_]{0,39}\Z"), name="lost_reason_key_shape"),
+            models.CheckConstraint(condition=Q(label__regex=r"\S"), name="lost_reason_label_nonblank"),
+        ]
+
+
+class StageChange(models.Model):
+    """Every stage a lead or a campaign person moved to, and why (2.40.57).
+
+    Append-only. Labels are copied at the time of the change, so renaming a
+    stage later does not rewrite what the history says. `actor` is empty for a
+    change the system made (a valid invoice converting a campaign person, the
+    first call moving one on, the move to stages in 2.40.57 itself).
+    """
+
+    class Source(models.TextChoices):
+        MANUAL = "manual", "دستی"
+        CONTACT = "contact", "ثبت تماس"
+        INVOICE = "invoice", "فاکتور معتبر"
+        MIGRATION = "migration", "انتقال از نسخهٔ قبل"
+
+    pipeline = models.CharField(max_length=16, choices=PipelineStage.Pipeline.choices)
+    lead = models.ForeignKey(Lead, null=True, blank=True, on_delete=models.PROTECT, related_name="stage_changes")
+    member = models.ForeignKey(
+        TargetAudienceMember, null=True, blank=True, on_delete=models.PROTECT, related_name="stage_changes"
+    )
+    from_stage = models.CharField(max_length=PIPELINE_KEY_MAX_LENGTH, blank=True)
+    from_label = models.CharField(max_length=PIPELINE_LABEL_MAX_LENGTH, blank=True)
+    to_stage = models.CharField(max_length=PIPELINE_KEY_MAX_LENGTH)
+    to_label = models.CharField(max_length=PIPELINE_LABEL_MAX_LENGTH)
+    lost_reason_key = models.CharField(max_length=PIPELINE_KEY_MAX_LENGTH, blank=True)
+    lost_reason_label = models.CharField(max_length=PIPELINE_LABEL_MAX_LENGTH, blank=True)
+    note = models.CharField(max_length=LOST_NOTE_MAX_LENGTH, blank=True)
+    #: Why a final stage was left (required for that) — «بازگشایی».
+    reason = models.CharField(max_length=STAGE_REASON_MAX_LENGTH, blank=True)
+    reopened = models.BooleanField(default=False)
+    source = models.CharField(max_length=12, choices=Source.choices, default=Source.MANUAL)
+    actor = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name="stage_changes"
+    )
+    changed_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        ordering = ["-changed_at", "-id"]
+        constraints = [
+            models.CheckConstraint(
+                condition=(Q(lead__isnull=False, member__isnull=True, pipeline="lead")
+                           | Q(lead__isnull=True, member__isnull=False, pipeline="campaign")),
+                name="stage_change_names_one_record",
+            ),
+            models.CheckConstraint(
+                condition=Q(source__in=["manual", "contact", "invoice", "migration"]), name="stage_change_source_valid"
+            ),
+            models.CheckConstraint(condition=~Q(reopened=True) | Q(reason__regex=r"\S"), name="stage_change_reopen_has_reason"),
+        ]
+        indexes = [
+            models.Index(fields=["lead", "-changed_at"]),
+            models.Index(fields=["member", "-changed_at"]),
+            models.Index(fields=["pipeline", "to_stage", "changed_at"]),
         ]
 
 
